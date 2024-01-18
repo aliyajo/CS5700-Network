@@ -10,14 +10,17 @@ Once the client guesses the correct word, the server will return a secret flag t
 
 This client program support TLS encrypted sockets
 '''
-# Import argsparse for dealing with command prompt
+# Importing appropriate libraries
 import argparse
 import json
 import socket 
 import json
+import random
+from typing import List
 
 '''
 This function parses the command line arguments. 
+@Returns the parsed arguments
 '''
 def parse_args() :
     # create a parser object
@@ -35,6 +38,11 @@ def parse_args() :
 '''
 This function is able to connect to the server with parsed argument from the command line.
 Once connected, will send hello message server to initiate protocol for the game.
+
+@c_socket is the socket object
+@HostName is the host name of the server
+@p is the port number
+@NortheasternUsername is the Northeastern Username
 '''
 def connect_to_server(c_socket, HostName, p, NortheasternUsername):
     c_socket.connect((HostName, p))
@@ -47,39 +55,136 @@ def connect_to_server(c_socket, HostName, p, NortheasternUsername):
 
     c_socket.send(hello_message.encode())
 
-def guess():
+'''
+This function reads the response from the server.
+For debugging purposes.
+@c_socket is the socket object
+@Returns the response from the server 
+'''
+def read_response(c_socket):
+    try:
+        # Read response from server
+        response = c_socket.recv(5000).decode()
 
-def send_guess(c_socket, guess):
+        # Parse response from server
+        response = json.loads(response)
+
+        # If there is no response from the server.
+        if response == None:
+            print("There is no response from the server.")
+            exit(1)
+
+        # If there is a response, return it.
+        return response
+    
+    #Error handling
+    except Exception as e:
+        print(f"Error: {e}")
+        exit(1)
+
+
+'''
+This function reads the wordlist.txt file and returns a list of words.
+@Returns a list of words from the text file
+'''
+def read_wordlist():
+    # Select the wordlist.txt file that is in the directory of Project 1.
+    path = r"Project 1\wordlist.txt"
+    # Read the file and send the guess to the server
+    try:
+        with open(path, "r") as file:
+            contents = file.read()
+            guesses = contents.split()
+            return guesses
+    # If file not found, print error File Not Found. 
+    except FileNotFoundError:
+        print(f"File not found")
+        exit()
+    # For any other error, print the error. 
+    except Exception as e:
+        print(f"Error: {e}")
+        exit()
+
+'''
+This functions sends a guess to the server from the socket.
+@c_socket is the socket object
+@id is the id of the client for the current game
+@guess is the word that is being guessed
+'''
+def send_a_guess(c_socket, id, guess):
     # Send guess message to server
     guess_message = json.dumps({
         "type": "guess",
-        "guess": guess
+        "id": id,
+        "word": guess
     }) + "\n"
-
     c_socket.send(guess_message.encode())
 
-def read_response(c_socket):
-    # Read response from server
-    response = c_socket.recv(4096).decode()
+'''
+This function fiters the list of filtered_words
+'''
+def filter_words(guesses, guessed_words, marks_list):
+    filtered_list = []
 
-    # Parse response from server
-    response = json.loads(response)
+    # iterate through the words in the whole entire guesses list
+    for word in guesses:
+        # set variable checker to true
+        is_valid = True
 
-    return response
+        # iterate through the guessed words and the corresponding marks list
+        for guessed_word, marks in zip(guessed_words, marks_list):
+            # iterate through the letters in the guessed word and the corresponding marks array
+            for letter, mark in zip(guessed_word, marks):
+                # if the mark is 0 and the letter is in the word, then not valid letter
+                if mark == 0 and letter in word:
+                    is_valid = False
+                # if the mark is 1 and the letter is not in the word, then not valid letter
+                elif mark == 1 and letter not in word:
+                    is_valid = False
+                elif mark == 2:
+                    if letter != word[marks.index(mark)]:
+                        is_valid = False
 
+        if is_valid:
+            filtered_list.append(word)
+
+    return filtered_list
+
+
+'''
+This is a main function that runs the program.
+'''
 def main():
     # Parse the command line arguments
     args = parse_args()
-
     # Create a stream socket object
     c_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     # Connect to the server
     connect_to_server(c_socket, HostName=args.HostName, p=args.p, NortheasternUsername=args.NortheasternUsername)
-    print(read_response(c_socket)) 
-    # Send guess to server
-    guess = guess()
-    send_guess(c_socket, guess)
-    print(read_response(c_socket))
+    id = read_response(c_socket)["id"]
+
+    # Perform guess
+    guesses = read_wordlist()
+    guess = random.choice(guesses)
+    send_a_guess(c_socket, id, guess)
+
+    while True:
+        # Receive response
+        response = read_response(c_socket)
+
+        if response["type"] == "bye":
+            print("Yay you got it!: " + response["flag"])
+            break
+        elif response["type"] == "retry":
+            guessed_words = [guess["word"] for guess in response["guesses"]]
+            marks_list = [mark["marks"] for mark in response["guesses"]]
+            # Filter words based on response
+            filtered_list = filter_words(guesses, guessed_words, marks_list)
+            print(filtered_list)
+            # Pick a new guess and send to the server
+            # guess = random.choice(filtered_list)
+            # send_a_guess(c_socket, id, guess)
+            
 if __name__ == "__main__":
     main()
