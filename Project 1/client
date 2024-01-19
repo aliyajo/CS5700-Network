@@ -165,8 +165,6 @@ This is a main function that runs the program.
 def main():
     # Parse the command line arguments
     args = parse_args()
-    # In the case if the -p is not supplied. 
-    print(args.p)
     # Create a stream socket object
     c_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
     # Connect to the server
@@ -183,7 +181,7 @@ def main():
         response = read_response(c_socket)
 
         if response["type"] == "bye":
-            print("Yay you got it!: " + response["flag"])
+            print(response["flag"])
             break
         elif response["type"] == "retry":
             guessed_words = [guess["word"] for guess in response["guesses"]]
@@ -191,15 +189,16 @@ def main():
             # Filter words based on response
             filtered_list = filter_words(guesses, guessed_words, marks_list)
 
+            # Raise error if no words left
             if len(filtered_list) == 0:
-                print("No words left to guess")
+                raise Exception("No words left")
                 exit(1)
             else:
                  # Send guess
                 guess = random.choice(filtered_list)
                 send_a_guess(c_socket, id, guess)
         else:
-            print("Invalid response from server")
+            raise Exception("Invalid response from server")
             exit(1)
 
         
