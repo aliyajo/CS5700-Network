@@ -28,7 +28,7 @@ def parse_args() :
     # add arguments to the parser object
     parser.add_argument('-p', type=int, help= "Port Number", required=False)
     parser.add_argument('-s', type=str, help= "Server Name", required=False)
-    parser.add_argument('HostName', type=str, help= "Host Name" )
+    parser.add_argument('HostName', type=str,  help= "Host Name" )
     parser.add_argument('NortheasternUsername', type=str, help= "Northeastern Username")
 
     return parser.parse_args()
@@ -43,7 +43,14 @@ Once connected, will send hello message server to initiate protocol for the game
 @p is the port number
 @NortheasternUsername is the Northeastern Username
 '''
-def connect_to_server(c_socket, HostName, p, NortheasternUsername):
+def connect_to_server(c_socket, HostName, p, s, NortheasternUsername):
+    # Checking to see if the port number was supplied. 
+    if p == None:
+        # if port number not supplied, make it a default. 
+        p = 27993
+        # if in addition the server was supplied, give port the default
+        if s != None:
+            p = 27994
     c_socket.connect((HostName, p))
 
     # Send hello message to server
@@ -158,13 +165,14 @@ This is a main function that runs the program.
 def main():
     # Parse the command line arguments
     args = parse_args()
+    # In the case if the -p is not supplied. 
+    print(args.p)
     # Create a stream socket object
-    c_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
+    c_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
     # Connect to the server
-    connect_to_server(c_socket, HostName=args.HostName, p=args.p, NortheasternUsername=args.NortheasternUsername)
+    connect_to_server(c_socket, HostName=args.HostName, p=args.p, s=args.s, NortheasternUsername=args.NortheasternUsername)
     id = read_response(c_socket)["id"]
-
+    
     # Perform guess
     guesses = read_wordlist()
     guess = random.choice(guesses)
