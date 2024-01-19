@@ -14,9 +14,7 @@ This client program support TLS encrypted sockets
 import argparse
 import json
 import socket 
-import json
 import random
-from typing import List
 
 '''
 This function parses the command line arguments. 
@@ -138,18 +136,20 @@ def filter_words(guesses, guessed_words, marks_list):
                 # if the mark is 0 and the letter is in the word, then not valid letter
                 if mark == 0 and letter in word:
                     is_valid = False
+                    break
                 # if the mark is 1 and the letter is not in the word, then not valid letter
                 elif mark == 1 and letter not in word:
                     is_valid = False
+                    break
                 elif mark == 2:
-                    if letter != word[marks.index(mark)]:
+                    if letter != word[guessed_word.index(letter)]:
                         is_valid = False
+                        break
 
         if is_valid:
             filtered_list.append(word)
 
     return filtered_list
-
 
 '''
 This is a main function that runs the program.
@@ -181,10 +181,18 @@ def main():
             marks_list = [mark["marks"] for mark in response["guesses"]]
             # Filter words based on response
             filtered_list = filter_words(guesses, guessed_words, marks_list)
-            print(filtered_list)
-            # Pick a new guess and send to the server
-            # guess = random.choice(filtered_list)
-            # send_a_guess(c_socket, id, guess)
-            
+
+            if len(filtered_list) == 0:
+                print("No words left to guess")
+                exit(1)
+            else:
+                 # Send guess
+                guess = random.choice(filtered_list)
+                send_a_guess(c_socket, id, guess)
+        else:
+            print("Invalid response from server")
+            exit(1)
+
+        
 if __name__ == "__main__":
     main()
