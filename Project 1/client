@@ -111,7 +111,7 @@ def read_wordlist():
     Returns a list of words from the text file
     '''
     # Select the wordlist.txt file that is in the directory of Project 1.
-    path = r"Project 1\wordlist.txt"
+    path = r"wordlist.txt"
     # Read the file and send the guess to the server
     try:
         with open(path, "r") as file:
