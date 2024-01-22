@@ -109,7 +109,7 @@ def read_wordlist():
     Returns a list of words from the text file
     '''
     # Select the wordlist.txt file that is in the directory of Project 1.
-    path = r"Project 1/wordlist.txt"
+    path = r"wordlist.txt"
     # Read the file and send the guess to the server
     try:
         with open(path, "r") as file:
@@ -190,7 +190,6 @@ def main():
     '''
     # Parse the command line arguments
     args = parse_args()
-    print(args)
     # Connect to server, tie this to variable c_socket
     c_socket = connect_to_server(args.HostName, args.PortNumber, args.TLSencryptedsocket, args.NortheasternUsername)
     id = read_response(c_socket)["id"]
@@ -204,7 +203,6 @@ def main():
         try:
             # Receive response
             response = read_response(c_socket)
-            print(response)
             # if the response type from server is "bye", then print out the secret flag
             if response["type"] == "bye":
                 print(response["flag"])
