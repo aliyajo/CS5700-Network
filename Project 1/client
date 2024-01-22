@@ -16,84 +16,100 @@ import argparse
 import json
 import socket 
 import random
+import ssl
+import argparse
 
-'''
-This function parses the command line arguments. 
-@Returns the parsed arguments
-'''
-def parse_args() :
+
+def parse_args():
+    '''
+    This function parses the command line arguments. 
+    Returns the parsed arguments
+    '''
     # create a parser object
     parser = argparse.ArgumentParser(description='Command Parser for Client Program')
-
     # add arguments to the parser object
-    parser.add_argument('-p', type=int, help= "Port Number", required=False)
-    parser.add_argument('-s', type=str, help= "Server Name", required=False)
-    parser.add_argument('HostName', type=str,  help= "Host Name" )
-    parser.add_argument('NortheasternUsername', type=str, help= "Northeastern Username")
-
-    return parser.parse_args()
-
-
-'''
-This function is able to connect to the server with parsed argument from the command line.
-Once connected, will send hello message server to initiate protocol for the game.
-
-@c_socket is the socket object
-@HostName is the host name of the server
-@p is the port number
-@NortheasternUsername is the Northeastern Username
-'''
-def connect_to_server(c_socket, HostName, p, s, NortheasternUsername):
+    parser.add_argument('-p', '--PortNumber', action='store', type=int, help="Port Number", required=False)
+    parser.add_argument('-s', "--TLSencryptedsocket", action='store_true', help="TLS encrypted socket connection", required=False)
+    parser.add_argument('HostName', type=str, action='store', help="Host Name")
+    parser.add_argument('NortheasternUsername', type=str, action='store', help="Northeastern Username")
+    
+    args = parser.parse_args()
     # Checking to see if the port number was supplied. 
-    if p == None:
+    if args.PortNumber is None and not args.TLSencryptedsocket:
         # if port number not supplied, make it a default. 
-        p = 27993
-        # if in addition the server was supplied, give port the default
-        if s != None:
-            p = 27994
-    c_socket.connect((HostName, p))
+        args.PortNumber = 27993
+    # If TLS encryption wanted, but port not given, give port the default
+    elif args.TLSencryptedsocket and args.PortNumber is None:
+        args.PortNumber = 27994
 
-    # Send hello message to server
-    hello_message = json.dumps({
-        "type": "hello",
-        "northeastern_username": NortheasternUsername
-    }) + "\n"
+    return args
 
-    c_socket.send(hello_message.encode())
 
-'''
-This function reads the response from the server.
-For debugging purposes.
-@c_socket is the socket object
-@Returns the response from the server 
-'''
+def connect_to_server(HostName, PortNumber, TLSencryptedsocket, NortheasternUsername):
+    '''
+    This function is able to connect to the server with parsed argument from the command line.
+    Once connected, will send hello message server to initiate protocol for the game.
+
+    Params:
+        @HostName is the host name of the server
+        @PortNumber is the port number
+        @NortheasternUsername is the Northeastern Username
+    '''
+    try:
+        # Make a socket variable
+        c_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Connect with TLS encryption if TLSencryptedsocket is true
+        if TLSencryptedsocket:
+            context = ssl.create_default_context()
+            c_socket = context.wrap_socket(c_socket, server_hostname=HostName)
+
+        # Connect to server
+        c_socket.connect((HostName, PortNumber))
+
+        # Send hello message to server
+        hello_message = json.dumps({
+            "type": "hello",
+            "northeastern_username": NortheasternUsername
+        }) + "\n"
+        c_socket.send(hello_message.encode())
+
+        # Return c_socket object
+        return c_socket
+
+    except Exception as e:
+        print(f"Error: {e}")
+        exit(1)
+
+
 def read_response(c_socket):
+    '''
+    This function reads the response from the server.
+    Params:
+        @c_socket is the socket object
+    Returns the response from the server 
+    '''
     try:
         # Read response from server
         response = c_socket.recv(5000).decode()
-
         # Parse response from server
         response = json.loads(response)
-
         # If there is no response from the server.
         if response == None:
             print("There is no response from the server.")
             exit(1)
-
         # If there is a response, return it.
-        return response
-    
+        return response 
     #Error handling
     except Exception as e:
         print(f"Error: {e}")
         exit(1)
 
 
-'''
-This function reads the wordlist.txt file and returns a list of words.
-@Returns a list of words from the text file
-'''
 def read_wordlist():
+    '''
+    This function reads the wordlist.txt file and returns a list of words.
+    Returns a list of words from the text file
+    '''
     # Select the wordlist.txt file that is in the directory of Project 1.
     path = r"Project 1\wordlist.txt"
     # Read the file and send the guess to the server
@@ -111,13 +127,14 @@ def read_wordlist():
         print(f"Error: {e}")
         exit()
 
-'''
-This functions sends a guess to the server from the socket.
-@c_socket is the socket object
-@id is the id of the client for the current game
-@guess is the word that is being guessed
-'''
 def send_a_guess(c_socket, id, guess):
+    '''
+    This functions sends a guess to the server from the socket.
+    Params:
+        @c_socket is the socket object
+        @id is the id of the client for the current game
+        @guess is the word that is being guessed
+    '''
     # Send guess message to server
     guess_message = json.dumps({
         "type": "guess",
@@ -126,81 +143,93 @@ def send_a_guess(c_socket, id, guess):
     }) + "\n"
     c_socket.send(guess_message.encode())
 
-'''
-This function fiters the list of filtered_words
-'''
-def filter_words(guesses, guessed_words, marks_list):
+def filter_words(guesses, guessed_word, marks):
+    '''
+    This function fiters the list of filtered_words
+    Params:
+        @guesses is the list of official words used by Wordle. 
+        @guessed_word is the word that was guessed for the current iteration.
+        @marks is the list of marks that correspond to the guessed word.
+    Returns: a list of filtered words from the guesses list. 
+    '''
     filtered_list = []
 
     # iterate through the words in the whole entire guesses list
     for word in guesses:
         # set variable checker to true
         is_valid = True
-
-        # iterate through the guessed words and the corresponding marks list
-        for guessed_word, marks in zip(guessed_words, marks_list):
-            # iterate through the letters in the guessed word and the corresponding marks array
-            for letter, mark in zip(guessed_word, marks):
-                # if the mark is 0 and the letter is in the word, then not valid letter
-                if mark == 0 and letter in word:
+        # iterate through the letters in the guessed word and the corresponding marks array
+        for letter, mark in zip(guessed_word, marks):
+            # if the mark is 0
+            if mark == 0:
+                # if the letter is in any of the words of the guessed words, then not valid letter and
+                # if the index of the letter is not the same as the index of the letter in the guessed word, then not valid letter
+                # checking even if the letter is in the word but not in the correct position
+                if letter in word and word.index(letter) != guessed_word.index(letter):
                     is_valid = False
                     break
-                # if the mark is 1 and the letter is not in the word, then not valid letter
-                elif mark == 1 and letter not in word:
+            # if the mark is 1 
+            elif mark == 1:
+                # if the letter is not in the word, then not valid word.
+                if letter not in word:
                     is_valid = False
                     break
-                elif mark == 2:
-                    if letter != word[guessed_word.index(letter)]:
-                        is_valid = False
-                        break
-
+            # if the mark is 2
+            elif mark == 2:
+                # if the letter is not in the exact same index of the guessed word, then not valid word
+                if letter != word[guessed_word.index(letter)]:
+                    is_valid = False
+                    break
+        # if the word is valid, add to the filitered_list
         if is_valid:
             filtered_list.append(word)
-
+    # return the filtered list
     return filtered_list
 
-'''
-This is a main function that runs the program.
-'''
 def main():
+    '''
+    This is a main function that runs the entire game. 
+    '''
     # Parse the command line arguments
     args = parse_args()
-    # Create a stream socket object
-    c_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-    # Connect to the server
-    connect_to_server(c_socket, HostName=args.HostName, p=args.p, s=args.s, NortheasternUsername=args.NortheasternUsername)
+    # Connect to server, tie this to variable c_socket
+    c_socket = connect_to_server(args.HostName, args.PortNumber, args.TLSencryptedsocket, args.NortheasternUsername)
     id = read_response(c_socket)["id"]
-    
     # Perform guess
     guesses = read_wordlist()
     guess = random.choice(guesses)
     send_a_guess(c_socket, id, guess)
-
+    # Perform loop until game is over
     while True:
-        # Receive response
-        response = read_response(c_socket)
-
-        if response["type"] == "bye":
-            print(response["flag"])
-            break
-        elif response["type"] == "retry":
-            guessed_words = [guess["word"] for guess in response["guesses"]]
-            marks_list = [mark["marks"] for mark in response["guesses"]]
-            # Filter words based on response
-            filtered_list = filter_words(guesses, guessed_words, marks_list)
-
-            # Raise error if no words left
-            if len(filtered_list) == 0:
-                raise Exception("No words left")
-                exit(1)
-            else:
-                 # Send guess
-                guess = random.choice(filtered_list)
-                send_a_guess(c_socket, id, guess)
-        else:
-            raise Exception("Invalid response from server")
+        # try to run the game
+        try:
+            # Receive response
+            response = read_response(c_socket)
+            # if the response type from server is "bye", then print out the secret flag
+            if response["type"] == "bye":
+                print(response["flag"])
+                break
+            # if the response type from server is "retry", then will keep guessing
+            elif response["type"] == "retry":
+                # guessed_ word is the last word that is guessed
+                guessed_word = response["guesses"][-1]["word"]
+                # marks is the marks that correspond with the last guessed word
+                marks = response["guesses"][-1]["marks"]
+                # Filter words based on response
+                filtered_list = filter_words(guesses, guessed_word, marks)
+                # Raise error if no words left in filtered list -- word not in the guesses list
+                if len(filtered_list) == 0:
+                    raise Exception("No words left")
+                    exit(1)
+                else:
+                    # Send guess
+                    guess = random.choice(filtered_list)
+                    send_a_guess(c_socket, id, guess)
+        # Error handling
+        except Exception as e:
+            print(f"Error: {e}")
             exit(1)
 
-        
+
 if __name__ == "__main__":
     main()
