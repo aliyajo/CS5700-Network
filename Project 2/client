@@ -7,7 +7,8 @@ This file is for the client side of connected to a FTP server.
 Has the features of a FTP application.
 '''
 import argparse
-from ftplib import FTP
+import socket
+from urllib.parse import urlparse
 
 def parse_arguments():
     '''
@@ -15,209 +16,72 @@ def parse_arguments():
     given by the user.
     @return: the arguments from the command line. 
     '''
-    parser = argparse.ArgumentParser(description='Command Parser for Client Program')
-    subparser = parser.add_subparsers(dest='command', help='Command to be executed')
-    # Parsing for the USER command
-    username = subparser.add_parser('USER', help='Username for FTP server login. If not provided, the client assumes "anonymous".')
-    username.add_argument('username', nargs='?', help="Parameter for command")
-    # Parsing for the PASS command
-    password = subparser.add_parser('PASS', help='Password for FTP server login. If not provided, password is not sent to FTP server.')
-    password.add_argument('password', nargs='?', help="Parameter for command")
-    # Parsing for the TYPE command
-    type = subparser.add_parser('TYPE', help='Type of file transfer to be used.')
-    type.add_argument('type', nargs='?', help="Parameter for command")
-    # Parsing for MODE command
-    mode = subparser.add_parser('MODE', help='Setting the connection to stream mode.')
-    mode.add_argument('mode', nargs='?', help="Parameter for command")
-    # Parsing for STRU command
-    stru = subparser.add_parser('STRU', help='Setting the connection to file-oriented mode.')
-    stru.add_argument('stru', nargs='?', help="Parameter for command")
-    # Parsing for LIST command
-    list = subparser.add_parser('LIST', help='List the contents of the directory specified.')
-    list.add_argument('list_path', nargs='?', help="Parameter for command")
-    # Parsing for the DELE command 
-    dele = subparser.add_parser('DELE', help='Delete the file specified.')
-    dele.add_argument('dele_path', nargs='?', help="Parameter for command")
-    # Parsing for the MKD command
-    mkd = subparser.add_parser('MKD', help='Make a directory at the given path specified.')
-    mkd.add_argument('mkd_path', nargs='?', help="Parameter for command")
-    # Parsing for the RMD command
-    rmd = subparser.add_parser('RMD', help='Remove a directory at the given path specified.')
-    rmd.add_argument('rmd_path', nargs='?', help="Parameter for command")
-    # Parsing for the STOR command
-    stor = subparser.add_parser('STOR', help='Upload new file with the given path specified.')
-    stor.add_argument('stor_path', nargs='?', help="Parameter for command")
-    # Parsing for the RETR command
-    retr = subparser.add_parser('RETR', help='Download file with the given path specified.')
-    retr.add_argument('retr_path', nargs='?', help="Parameter for command")
-    # Parsing for the QUIT command
-    subparser.add_parser('QUIT', help='Asking FTP server to close the conneciton.')
-    # Parsing for the PASV command
-    subparser.add_parser('PASV', help='Asking FTP server to open data channel.')
+    parser = argparse.ArgumentParser(description='FTP client for listing, copying, moving, and deleting files and directories on remote FTP servers.')
+    # Parsing for the ls command
+    parser.add_argument('positional_arguments', choices=['ls', 'mkdir', 'rm', 'rmdir', 'cp', 'mv'], metavar='operation', help="This operation to execute. Valid operations are 'ls', 'rm', 'rmdir','mkdir', 'cp', and 'mv'.")
+    parser.add_argument('params', action='store', nargs='*', help="Parameters for the given operation. Will be one or two paths and/or URLs.")
     args = parser.parse_args()
     return args
     
-def connect_to_server():
+def parse_URL(url):
     '''
-    This function is to connect to the server.
-    @return: the connection to the server.
+    This function parses the URL given by the user
+    @param url: the URL given by the user
+    @return: the username, password, host, port number, and path of the URL.
     '''
-    control_socket = 
-        
-def user_command(username):
-    '''
-    This function is to incorporate the functionality of the USER command.
-    @param username: the username of the user.
-    '''
-    # So are we hard coding the given server as the server we are logging into?
+    parsed_url = urlparse(url)
+    username = parsed_url.username
+    if not username:
+        username = "anonymous"
+    password = parsed_url.password
+    host = parsed_url.hostname
+    port = parsed_url.port
+    # If no port given, then revert to default of 21.
+    if port == None:
+        port = 21
+    path = parsed_url.path
+    return username, password, host, port, path
     
+def connect_to_server():
+    control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    
+def message_to_server(message):
+    '''
+    This function sends the message to the server.
+    @param message: the message to send to the server.
+    '''
+    # Create a socket
+    control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-def pass_command(password):
+    
+def ls_command(path):
     '''
-    This function is to incorporate the functionality of the PASS command.
-    @param password: the password of the user.
+    This function is for the ls command.
+    @param path where want to list the directory.
     '''
-    print(password)
+    ls_message = "LIST" + " " + path + "\r" + "\n"
+    message_to_server(ls_message)
+    quit_command()
 
-def type_i_command():
-    '''
-    This function is to incorporate the functionality of the TYPE I command.
-    '''
-
-def mode_s_command():
-    '''
-    This function is to incorporate the functionality of the MODE S command.
-    '''
-
-def stru_f_command():
-    '''
-    This function is to incorporate the functionality of the STRU F command.
-    '''
-
-def list_command(path):
-    '''
-    This function is to incorporate the functionality of the LIST command.
-    @param path: the path of the directory where want contents listed.
-    '''
-    print(path)
-def dele_command(path):
-    '''
-    This function is to incorporate the functionality of the DELE command.
-    @param path: the path of the file want to delete.
-    '''
-    print(path)
-def mkd_command(path):
-    '''
-    This function is to incorporate the functionality of the MKD command.
-    @param path: the path of the directory want to make.
-    '''
-    print(path)
-def rmd_command(path):
-    '''
-    This function is to incorporate the functionality of the RMD command.
-    @param path: the path of the directory want to remove.
-    '''
-    print(path)
-def stor_command(path):
-    '''
-    This function is to incorporate the functionality of the STOR command.
-    @param path: the path of the file want to upload.
-    '''
-    print(path)
-def retr_command(path):
-    '''
-    This function is to incorporate the functionality of the RETR command.
-    @param path: the path of the file want to download. 
-    '''
-    print(path)
 def quit_command():
     '''
-    This function is to incorporate the functionality of the QUIT command.
+    This function is for the quit command.
     '''
+    quit_message = "QUIT" + "\r" + "\n"
+    return quit_message
 
-def pasv_command():
-    '''
-    This function is to incorporate the functionality of the PASV command.
-    '''
-def read_response():
-    '''
-    This function is to read the response from the server.
-    @return: the response from the server.
-    '''
-    
 def main():
     '''
-    This function is the main function of the client program.
+    This is the main function to run the client program. 
     '''
-    # Parse the arguments from the command line
+    # Parse the arguments given in the command line.
     args = parse_arguments()
-        # Checking which command was given in command line.
-    # If the USER command is given, execute the user_command function.
-    if args.command == "USER":
-        user_command(args.username)
-    # If the PASS command is given, execute the pass_command function.
-    elif args.command == "PASS":
-        pass_command(args.password)
-    # If the TYPE command is given, execute the type_command function.
-    elif args.command == "TYPE":
-        # If the type given is I, execute the type_i_command function.
-        if args.type == "I":
-            type_i_command()
-        # Else, print that the command is not recognized and exit.
-        else:
-            print("Command not recognized")
-            exit(1)
-    # If the MODE command is given, execute the mode_command function.
-    elif args.command == "MODE":
-        # If the mode given is S, execute the mode_s_command function.
-        if args.mode == "S":
-            mode_s_command()
-        # Else, print that the command is not recognized and exit.
-        else:
-            print("Command not recognized")
-            exit(1)
-    # If the STRU command is given, execute the stru_command function.
-    elif args.command == "STRU":
-        # If the stru given is F, execute the stru_f_command function.
-        if args.stru == "F":
-            stru_f_command()
-        # Else, print that the command is not recognized and exit.
-        else:
-            print("Command not recognized")
-            exit(1)
-    # If the LIST command is given, execute the list_command function.
-    elif args.command == "LIST":
-        list_command(args.list_path)
-    # If the DELE command is given, execute the dele_command function.
-    elif args.command == "DELE":
-        dele_command(args.dele_path)
-    # If the MKD command is given, execute the mkd_command function.
-    elif args.command == "MKD":
-        mkd_command(args.mkd_path)
-    # If the RMD command is given, execute the rmd_command function.
-    elif args.command == "RMD":
-        rmd_command(args.rmd_path)
-    # If the STOR command is given, execute the stor_command function.
-    elif args.command == "STOR":
-        stor_command(args.stor_path)
-    # If the RETR command is given, execute the retr_command function.
-    elif args.command == "RETR":
-        retr_command(args.retr_path)
-    # If the QUIT command is given, execute the quit_command function.
-    elif args.command == "QUIT":
-        quit_command()
-    # If the PASV command is given, execute the pasv_command function.
-    elif args.command == "PASV":
-        pasv_command()
-    # Else, print that the command is not recognized and exit.
-    else:
-        print("Command not recognized")
-        exit(1)
+    # Send the parameter (URL) to the parse_URL function.
+    username, password, host, port, path = parse_URL(args.params[0])
 
-    
-    
-
-    
-
+    # Perform given command
+    if args.positional_arguments == "ls":
+        ls_command(path)
+        read_response(c_socket)
 if __name__ == "__main__":
     main()
