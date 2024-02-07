@@ -1,0 +1,375 @@
+#!/usr/bin/env python3
+#!/bin/sh
+'''
+By: Aliya Jordan
+Date Started: 1/25/24
+
+This file is for the client side of connected to a FTP server.
+Has the features of a FTP application.
+'''
+import argparse
+import socket
+from urllib.parse import urlparse
+
+def parse_arguments():
+    '''
+    This function parses the arguments from the command line 
+    given by the user.
+    @return: the arguments from the command line. 
+    '''
+    parser = argparse.ArgumentParser(description='FTP client for listing, copying, moving, and deleting files and directories on remote FTP servers.')
+    # Parsing for the ls command
+    parser.add_argument('positional_arguments', choices=['ls', 'mkdir', 'rm', 'rmdir', 'cp', 'mv'], metavar='operation', help="This operation to execute. Valid operations are 'ls', 'rm', 'rmdir','mkdir', 'cp', and 'mv'.")
+    parser.add_argument('params', action='store', nargs='*', help="Parameters for the given operation. Will be one or two paths and/or URLs.")
+    args = parser.parse_args()
+    return args
+    
+def parse_URL(url):
+    '''
+    This function parses the URL given by the user
+    @param url: the URL given by the user
+    @return: the username, password, host, port number, and server_path of the URL.
+    '''
+    # Using urlparse to parse the URL
+    parsed_url = urlparse(url)
+    # Username from the url
+    username = parsed_url.username
+    # If username not given
+    if not username:
+        username = "anonymous"
+    # Password from the url
+    password = parsed_url.password
+    # Host from the url
+    host = parsed_url.hostname
+    # Port from the url
+    port = parsed_url.port
+    # If no port given, then revert to default of 21.
+    if port == None:
+        port = 21
+    # Server path from the url
+    server_path = parsed_url.path
+    return username, password, host, port, server_path
+
+def print_server_message(control_socket):
+    '''
+    This function prints the message from the server.
+    @param control_socket: the socket object
+    '''
+    # Reading messages from the server
+    while True:
+        print(control_socket.recv(1024).decode())
+        break
+ 
+def connect_to_server(host, port, username, password):
+    '''
+    This function connects to the server with the given host 
+    and port number.
+    @param host: the host name of the server
+    @param port: the port number of the server
+    @param username: the username of the server
+    @param password: the password of the server
+    @return: the socket object
+    '''
+    try:
+        # Make a control socket variable
+        control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Connecting control socket to the server
+        # This socket is for sending requests and recieving responses
+        control_socket.connect((host, port))
+        print_server_message(control_socket)
+        # Sending username to server
+        print("Sending Username:"+ username + "\n")
+        control_socket.send(f"USER {username}\r\n".encode())
+        print_server_message(control_socket)
+        # Sending password to server
+        print("Sending Password:" + password + "\n")
+        control_socket.send(f"PASS {password}\r\n".encode())
+        print_server_message(control_socket)
+        # Return control socket, now connected to server with credientals
+        return control_socket
+    except:
+        print("Error: Could not connect to server.")
+        exit(1)
+
+def connect_to_data_channel(control_socket):
+    '''
+    This function connects to the data channel of the server.
+    @param control_socket: the socket object
+    @return: the socket object
+    '''
+    try:
+        # Letting server know we want to open data channel
+        control_socket.send("PASV\r\n".encode())
+        # Read the response from the server that gives back important parameter.
+        while True:
+            response = control_socket.recv(1024).decode()
+            break
+        # This is the code of the response
+        code = response.split()[0]
+        # If the code is 227, means we can successfully open a data channel
+        if code == "227":
+            first_ip_bit = response.split("(")[1].split(",")[0]
+            second_ip_bit = response.split("(")[1].split(",")[1]
+            third_ip_bit = response.split("(")[1].split(",")[2]
+            fourth_ip_bit = response.split("(")[1].split(",")[3]
+            ip_address = first_ip_bit + "." + second_ip_bit + "." + third_ip_bit + "." + fourth_ip_bit
+            # Computing the port 
+            top_port_bits = int(response.split("(")[1].split(",")[4] )
+            bottom_port_bits = int(response.split("(")[1].split(",")[5].split(")")[0])
+            port = (top_port_bits << 8) + bottom_port_bits
+            # Make a data socket variable
+            data_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # Connect to the data channel
+            data_socket.connect((ip_address, port))
+            return data_socket
+    except:
+        print("Error: Could not connect to data channel.")
+        exit(1)
+
+def ls_command(control_socket, server_path):
+    '''
+    This function is to perform efficient communication between
+    server and client for the ls command.
+    This uses a data channel socket-- the server will close this. 
+    @param control_socket: the socket object
+    @param server_path: the path to the directory on the server
+    '''
+    try:
+        # Creating the data channel socket
+        data_socket = connect_to_data_channel(control_socket)
+        # Sending command want listed directory
+        control_socket.send(f"LIST {server_path}\r\n".encode())
+        # Reading messages from the server 
+        print_server_message(control_socket)
+        while True:
+            print(data_socket.recv(1024).decode())
+            break
+        # Closing the control_socket
+        control_socket.send("QUIT\r\n".encode())
+        # Reading messages from the server
+        print_server_message(control_socket)
+    except Exception as e:
+        print("Error:", e)
+        exit(1)
+
+def rm_command(control_socket, server_path):
+    '''
+    This function is to perform efficient communication between
+    server and client for the rm command.
+    @param control_socket: the control socket object
+    @param server_path: the path to the directory on the server.
+    '''
+    try:
+        # Sending the DELE command to the server
+        control_socket.send(f"DELE {server_path}\r\n".encode())
+        # Reading messages from the server
+        print_server_message(control_socket)
+        # Closing the control_socket
+        control_socket.send("QUIT\r\n".encode())
+        # Reading messages from the server
+        print_server_message(control_socket)
+    except:
+        print("Error: Could not execute rm command.")
+        exit(1)
+
+def mkdir_command(control_socket, server_path):
+    '''
+    This function is to perform efficient communication between
+    server and client for the mkdir command.
+    @param control_socket: the control socket object
+    @param server_path: the path to the directory on the server.
+    '''
+    try:
+        # Sending the MKD command to the server
+        control_socket.send(f"MKD {server_path}\r\n".encode())
+        # Reading messages from the server
+        print_server_message(control_socket)
+        # Closing the control_socket. 
+        control_socket.send("QUIT\r\n".encode())
+        # Reading messages from the server
+        print_server_message(control_socket)
+    except:
+        print("Error: Could not execute mkdir command.")
+        exit(1)
+
+def rmdir_command(control_socket, server_path):
+    '''
+    This function is to perform efficient communication between
+    server and client for the rmdir command.
+    @param control_socket: the control socket object
+    @param server_path: the path to the directory on the server.
+    '''
+    try:
+        # Sending the RMD command to the server
+        control_socket.send(f"RMD {server_path}\r\n".encode())
+        # Reading messages from the server
+        print_server_message(control_socket)
+        # Closing the control_socket
+        control_socket.send("QUIT\r\n".encode())
+        # Reading messages from the server
+        print_server_message(control_socket)
+    except:
+        print("Error: Could not execute rmdir command.")
+        exit(1)
+
+def cp_command(control_socket, local_machine_path, server_file_path, download=True):
+    '''
+    This function is to perform efficient communication between
+    server and client for the cp command.
+    Using data channel socket.
+    @param control_socket: the control socket object
+    @param local_machine_path: the path to the file on the local machine
+    @param server_file_path: the path to the file on the server
+    @param download: a boolean indicating whether to download or upload the file
+    '''
+    try:
+        # Creating the data channel socket
+        data_socket = connect_to_data_channel(control_socket)
+        # Establishing connection to file structure mode
+        control_socket.send("STRU F\r\n".encode())
+        # Reading messages from the server
+        print_server_message(control_socket)
+        # Establishing connection to 8-bit binary data mode
+        control_socket.send("TYPE I\r\n".encode())
+        # Establishing connection to stream mode
+        control_socket.send("MODE S\r\n".encode())
+        
+        if download:
+            # Sending command to retrieve file from the server
+            control_socket.send(f"RETR {server_file_path}\r\n".encode())
+            # Reading messages from the server
+            print_server_message(control_socket)
+            # Open the file with the local machine path
+            with open(local_machine_path, "wb") as file:
+                data = data_socket.recv(4000)
+                # Write the data to the file
+                while data:
+                    file.write(data)
+                    data = data_socket.recv(1024)
+        else:
+            # Sending command to store file on the server
+            control_socket.send(f"STOR {server_file_path}\r\n".encode())
+            # Reading messages from the server
+            print_server_message(control_socket)
+            print(local_machine_path)
+            # Open the file with the local machine path, and send the data to the server
+            with open(local_machine_path, "rb") as file:
+                data = file.read()
+                data_socket.send(data)
+                # Close the data socket
+                data_socket.close()
+        
+        # Reading messages from the server
+        print_server_message(control_socket)
+        # Closing the control socket
+        control_socket.send("QUIT\r\n".encode())
+        print("File copied to server." if not download else "File copied from server.")
+    except Exception as e:
+        print(f"Error: {e}")
+        exit(1)
+
+def mv_command(control_socket, local_machine_path, server_file_path, upload=True):
+    '''
+    This function is to perform efficient communication between
+    server and client for the mv command.
+    Using data channel socket.
+    @param control_socket: the control socket object
+    @param local_machine_path: the path to the file on the local machine
+    @param server_file_path: the path to the file on the server
+    @param upload: a boolean indicating whether to download or upload the file
+    '''
+    try:
+        # Creating the data channel socket
+        data_socket = connect_to_data_channel(control_socket)
+        # Establishing connection to file structure mode
+        control_socket.send("STRU F\r\n".encode())
+        # Reading messages from the server
+        print_server_message(control_socket)
+        # Establishing connection to 8-bit binary data mode
+        control_socket.send("TYPE I\r\n".encode())
+        # Establishing connection to stream mode
+        control_socket.send("MODE S\r\n".encode())
+        
+        if upload:
+            # Sending command to retrieve file from the server
+            control_socket.send(f"RETR {server_file_path}\r\n".encode())
+            print("Server" + server_file_path)
+            # Reading messages from the server
+            print_server_message(control_socket)
+            # Open the file with the local machine path
+            with open(local_machine_path, "wb") as file:
+                data = data_socket.recv(4000)
+                # Write the data to the file
+                while data:
+                    file.write(data)
+                    data = data_socket.recv(1024)
+        else:
+            # Sending command to store file on the server
+            print("Server" + server_file_path)
+            control_socket.send(f"STOR {server_file_path}\r\n".encode())
+            # Reading messages from the server
+            print_server_message(control_socket)
+            # Open the file with the local machine path, and send the data to the server
+            with open(local_machine_path, "rb") as file:
+                data = file.read()
+                data_socket.send(data)
+                # Close the data socket
+                data_socket.close()
+        # Reading messages from the server
+        print_server_message(control_socket)
+        # Closing the control socket
+        control_socket.send("QUIT\r\n".encode())
+        print("File moved to the server." if not upload else "File moved from the server to local machine.")
+    except Exception as e:
+        print(f"Error: {e}")
+        exit(1)
+
+def main():
+    '''
+    This is the main function of the program.
+    '''
+    args = parse_arguments()
+    print(type(args.params[0]))
+    print(args.params[0])
+
+    # If the user is working directly on FTP server.
+    if len(args.params) == 1:
+        username, password, host, port, server_path = parse_URL(args.params[0])
+        print(server_path)
+        # Connecting to the server
+        control_socket = connect_to_server(host, port, username, password)
+        # If the user is trying to list the files on the server
+        if (args.positional_arguments == "ls"):
+            ls_command(control_socket, server_path)
+        # If the user is trying to remove something from the server
+        elif (args.positional_arguments == "rm"):
+            rm_command(control_socket, server_path)
+        # If the user is trying to make a directory on the server
+        elif (args.positional_arguments == "mkdir"):
+            mkdir_command(control_socket, server_path)
+        # If the user is trying to remove a directory from the server
+        elif (args.positional_arguments == "rmdir"):
+            rmdir_command(control_socket, server_path)
+    elif (len(args.params) == 2):
+        # If the user is trying to move something from the server to the local machine
+        if args.params[0].startswith("ftp://"):
+            username, password, host, port, server_path = parse_URL(args.params[0])
+            local_machine_path = args.params[1]
+            control_socket = connect_to_server(host, port, username, password)
+            if args.positional_arguments == "cp":
+                cp_command(control_socket,local_machine_path, server_path, download=True)
+                print(local_machine_path)
+            elif args.positional_arguments == "mv":
+                mv_command(control_socket,local_machine_path, server_path, upload=True)
+        # If the user is trying to move something from the local machine to the server
+        elif args.params[1].startswith("ftp://"):
+            username, password, host, port, server_path = parse_URL(args.params[1])
+            print(server_path)
+            local_machine_path = args.params[0]
+            control_socket = connect_to_server(host, port, username, password)
+            if args.positional_arguments == "cp":
+                cp_command(control_socket,local_machine_path,server_path, download=False)
+            elif args.positional_arguments == "mv":
+                mv_command(control_socket,local_machine_path,server_path, upload=False)
+if __name__ == "__main__":
+    main()
