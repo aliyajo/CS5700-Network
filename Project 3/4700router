@@ -106,7 +106,7 @@ class Router:
         elif msg_type == 'update':
             pass
         elif msg_type == 'withdrraw':
-            pass
+            handle_withdraw(msg)
         elif msg_type == 'data':
             pass
         elif msg_type == 'no route':
@@ -117,6 +117,15 @@ class Router:
             pass
         else:
             raise ValueError(f"Message type error: {msg_type}")
+
+def handle_withdraw(self, msg):
+    '''
+    This function is responsible for handling the withdraw message recieved from the
+    neighboring routers.
+    Params:
+        @msg: The withdraw message recieved from the neighboring routers
+    '''
+    pass
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='route packets')
