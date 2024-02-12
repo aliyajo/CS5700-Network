@@ -9,6 +9,17 @@ class Router:
     ports = {}
 
     def __init__(self, asn, connections):
+        '''
+        This is the constructor for our class Router Object. 
+        It is able to initialize this router object with the provided AS Number, 
+        as well as the list of connections to neighboring routers. 
+        It then sets up communication channels with each neighbor through UDP sockets. 
+        The port, numbers, relations, and sockets of each neighbor are stored as attributes of the router object.
+        Sends handshake message to each neighbor neighbor router to establish communication.
+        Params:
+            @asn: Autonomous System Number
+            @Connections: List of strings representing connections to other routers
+        '''
         print("Router at AS %s starting up" % asn)
         self.asn = asn
         for relationship in connections:
@@ -21,25 +32,51 @@ class Router:
             self.send(neighbor, json.dumps({ "type": "handshake", "src": self.our_addr(neighbor), "dst": neighbor, "msg": {}  }))
 
     def our_addr(self, dst):
+        '''
+        Modifies the given destination IP address and modifies it to construct a new IP address.
+        This new IP address comes in dotted quad notation. This is the format expected from the IP addresses.
+        Params:
+            @dst: Destination IP address
+        Returns:
+            Modified Quad Ip address
+        '''
         quads = list(int(qdn) for qdn in dst.split('.'))
         quads[3] = 1
         return "%d.%d.%d.%d" % (quads[0], quads[1], quads[2], quads[3])
 
     def send(self, network, message):
+        '''
+        This function is responsible for sending a message to a specified to network using UDP socket. 
+        Params:
+            @network: Represents the destination network that want to send message to
+            @message: Is the message to be sent to the destination network
+        '''
         self.sockets[network].sendto(message.encode('utf-8'), ('localhost', self.ports[network]))
 
     def run(self):
+        '''
+        This function is what runs our router object.
+        '''
         while True:
+            # Selects sockets that are ready for reading
             socks = select.select(self.sockets.values(), [], [], 0.1)[0]
+            # Iterates over the sockets that we know are ready for reading
             for conn in socks:
+                # Recieves message from the current socket.
+                # k = recieved data, addr = address of the sender
                 k, addr = conn.recvfrom(65535)
+                # Stores the source interface which the message was recieved
                 srcif = None
+                # Iterate through the sockets that are stored
                 for sock in self.sockets:
+                    # If the current socket is the same socket as the one which message was recieved
                     if self.sockets[sock] == conn:
+                        # If it is then the srcif = current socket 
                         srcif = sock
                         break
+                # Decodes the recieved message
                 msg = k.decode('utf-8')
-
+                # Print a message recieved message from the source interface
                 print("Received message '%s' from %s" % (msg, srcif))
         return
 
