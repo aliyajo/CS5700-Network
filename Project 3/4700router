@@ -86,6 +86,10 @@ class Router:
                 except:
                     print("Error parsing message")
                     continue
+                
+                # Handle the message according to the message type
+                self.handle_msg(msg)
+                
         return
     
     def handle_msg(self, msg):
