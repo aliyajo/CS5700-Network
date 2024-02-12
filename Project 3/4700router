@@ -33,7 +33,7 @@ class Router:
 
     def our_addr(self, dst):
         '''
-        Modifies the given destination IP address and modifies it to construct a new IP address.
+        Modifies the given destination IP address into a new IP address.
         This new IP address comes in dotted quad notation. This is the format expected from the IP addresses.
         Params:
             @dst: Destination IP address
