@@ -3,8 +3,8 @@
 # Project 3: BGP Router
 
 ## Authors:
-- [Aliya Jordan] (https://github.com/aliyajo)
-- [Linda Quach] (https://github.com/linppa)
+- [Aliya Jordan](https://github.com/aliyajo)
+- [Linda Quach](https://github.com/linppa)
 
 Starter code provided by Professor Christo Wilson at Northeastern University.
 
