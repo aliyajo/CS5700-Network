@@ -79,7 +79,40 @@ class Router:
                 msg = k.decode('utf-8')
                 # Print a message recieved message from the source interface
                 print("Received message '%s' from %s" % (msg, srcif))
+                
+                try:
+                    # Load the recieved message into a dictionary
+                    msg = json.loads(msg)
+                except:
+                    print("Error parsing message")
+                    continue
         return
+    
+    def handle_msg(self, msg):
+        '''
+        This function is responsible for handling the message recieved from the
+        neighboring routers.
+        Params:
+            @msg: The message recieved from the neighboring routers
+        '''
+        msg_type = msg.get('type')
+        
+        if msg_type == 'handshake':
+            pass
+        elif msg_type == 'update':
+            pass
+        elif msg_type == 'withdrraw':
+            pass
+        elif msg_type == 'data':
+            pass
+        elif msg_type == 'no route':
+            pass
+        elif msg_type == 'dump':
+            pass
+        elif msg_type == 'table':
+            pass
+        else:
+            raise ValueError(f"Message type error: {msg_type}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='route packets')
