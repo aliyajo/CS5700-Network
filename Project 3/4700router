@@ -190,6 +190,12 @@ class Router:
         
         # convert frwd table to list of dicts
         for network, attributes in self.forwarding_table.items():
+            
+            # TODO: --------- check logic here: cheesed ASPath by removing self.asn ---------
+            if attributes['ASPath'][0] == self.asn:
+                # delete self-asn
+                attributes['ASPath'].pop(0)   
+            
             table_entry = {
                 'origin': attributes['origin'],
                 'localpref': attributes['localpref'],
@@ -201,6 +207,7 @@ class Router:
             }
             table_entries.append(table_entry)
         
+        # TODO: --------- check logic here: confirm src & dst ---------
         # send table to source
         table_msg = {
             'src': self.our_addr(src),
@@ -209,6 +216,7 @@ class Router:
             'msg': table_entries
         }
         self.send(src, json.dumps(table_msg))
+        print(f"**TABLE MESSAGE**: {table_msg}")
         return
 
 
