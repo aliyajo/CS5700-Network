@@ -88,11 +88,10 @@ class Router:
                     continue
                 
                 # Handle the message according to the message type
-                self.handle_msg(msg)
-                
+                self.handle_msg(msg, srcif)
         return
     
-    def handle_msg(self, msg):
+    def handle_msg(self, msg, srcif):
         '''
         This function is responsible for handling the message recieved from the
         neighboring routers.
@@ -100,11 +99,9 @@ class Router:
             @msg: The message recieved from the neighboring routers
         '''
         msg_type = msg.get('type')
-        
-        if msg_type == 'handshake':
-            pass
-        elif msg_type == 'update':
-            pass
+
+        if msg_type == 'update':
+            self.handle_update(msg, srcif)
         elif msg_type == 'withdraw':
             self.handle_withdraw(msg)
         elif msg_type == 'data':
@@ -118,20 +115,38 @@ class Router:
         else:
             raise ValueError(f"Message type error: {msg_type}")
 
-    def handle_withdraw(self, msg):
+
+    def handle_update(self, msg, srcif):
         '''
-        This function is responsible for handling the withdraw message recieved from the
-        neighboring routers.
+        This function handles the update message recieved from the neighboring
+        routers & updates the forwarding table of the router.
         Params:
-            @msg: The withdraw message recieved from the neighboring routers
+            @msg: The update message recieved from the neighboring routers
+            @srcif: The source interface from which the message was recieved
         '''
-        '''
-        (1) save a copy of the revocation, in case you need it later, 
-        (2) remove the dead entry from the forwarding table, and 
-        (3) possibly send copies of the revocation to other neighboring routers.
-        '''
-        withdraw_copy = msg
-    
+        print("Received update from %s" % srcif)
+        print(msg)
+        msg_data = msg["msg"]
+        network = msg_data["network"]
+        netmask = msg_data["netmask"]
+        localpref = msg_data["localpref"]
+        ASPath = msg_data["ASPath"]
+        origin = msg_data["origin"]
+        selfOrigin = msg_data["selfOrigin"]
+        
+        self.forwarding_table[network] = {
+            "netmask": netmask,
+            "localpref": localpref,
+            "ASPath": ASPath,
+            "origin": origin,
+            "selfOrigin": selfOrigin
+        }
+        print(f"**FORWARDING TABLE**: {self.forwarding_table}")
+
+        return
+
+    def handle_withdraw(self, msg):
+        pass
     
 
 if __name__ == "__main__":
