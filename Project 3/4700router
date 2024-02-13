@@ -112,9 +112,7 @@ class Router:
         elif msg_type == 'no route':
             pass
         elif msg_type == 'dump':
-            pass
-        elif msg_type == 'table':
-            pass
+            self.handle_dump(msg, srcif)
         else:
             raise ValueError(f'Message type error: {msg_type}')
 
@@ -171,8 +169,43 @@ class Router:
                 self.send(neighbor, json.dumps(update_msg))
         return
 
+
     def handle_withdraw():
         pass
+
+
+
+    def handle_data():
+        pass
+    
+    
+    def handle_dump(self, msg, srcif):
+        src = msg['src']
+        dst = msg['dst']
+        table_entries = []
+        
+        # convert frwd table to list of dicts
+        for network, attributes in self.forwarding_table.items():
+            table_entry = {
+                'network': network,
+                'netmask': attributes['netmask'],
+                'localpref': attributes['localpref'],
+                'ASPath': attributes['ASPath'],
+                'origin': attributes['origin'],
+                'selfOrigin': attributes['selfOrigin']
+            }
+            table_entries.append(table_entry)
+        
+        # send table to source
+        table_msg = {
+            'src': self.our_addr(src),
+            'dst': src,
+            'type': 'table',
+            'msg': table_entries
+        }
+        self.send(src, json.dumps(table_msg))
+        return
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='route packets')
