@@ -152,7 +152,7 @@ class Router:
         }
         print(f'**FORWARDING TABLE**: {self.forwarding_table}')
         
-        # send update to all neighbors except source
+        # forward update to all neighbors except source
         for connection in self.connections:
             port, neighbor, relation = connection.split("-")
             if neighbor != msg['src']:
