@@ -23,6 +23,8 @@ class Router:
         '''
         print("Router at AS %s starting up" % asn)
         self.asn = asn
+        self.connections = connections
+        
         for relationship in connections:
             port, neighbor, relation = relationship.split("-")
 
@@ -84,7 +86,7 @@ class Router:
                     # Load the recieved message into a dictionary
                     msg = json.loads(msg)
                 except:
-                    print("Error parsing message")
+                    print('Error parsing message')
                     continue
                 
                 # Handle the message according to the message type
@@ -102,7 +104,7 @@ class Router:
 
         if msg_type == 'update':
             self.handle_update(msg, srcif)
-            self.send
+            # self.send
         elif msg_type == 'withdraw':
             pass
         elif msg_type == 'data':
@@ -114,7 +116,7 @@ class Router:
         elif msg_type == 'table':
             pass
         else:
-            raise ValueError(f"Message type error: {msg_type}")
+            raise ValueError(f'Message type error: {msg_type}')
 
 
     def handle_update(self, msg, srcif):
@@ -125,16 +127,16 @@ class Router:
             @msg: The update message recieved from the neighboring routers
             @srcif: The source interface from which the message was recieved
         '''
-        print("Received update msg from %s .. **UPDATING TABLE**" % srcif)
+        print('Received update msg from %s .. **UPDATING TABLE**' % srcif)
         
         # extract network attributes
-        msg_data = msg["msg"]
-        network = msg_data["network"]
-        netmask = msg_data["netmask"]
-        localpref = msg_data["localpref"]
-        ASPath = msg_data["ASPath"]
-        origin = msg_data["origin"]
-        selfOrigin = msg_data["selfOrigin"]
+        msg_data = msg['msg']
+        network = msg_data['network']
+        netmask = msg_data['netmask']
+        localpref = msg_data['localpref']
+        ASPath = msg_data['ASPath']
+        origin = msg_data['origin']
+        selfOrigin = msg_data['selfOrigin']
         
         # append router's ASN to front of ASPath
         if self.asn not in ASPath:
@@ -142,18 +144,35 @@ class Router:
         
         # update forwarding table
         self.forwarding_table[network] = {
-            "netmask": netmask,
-            "localpref": localpref,
-            "ASPath": ASPath,
-            "origin": origin,
-            "selfOrigin": selfOrigin
+            'netmask': netmask,
+            'localpref': localpref,
+            'ASPath': ASPath,
+            'origin': origin,
+            'selfOrigin': selfOrigin
         }
-        print(f"**FORWARDING TABLE**: {self.forwarding_table}")
+        print(f'**FORWARDING TABLE**: {self.forwarding_table}')
+        
+        # send update to all neighbors except source
+        for connection in self.connections:
+            port, neighbor, relation = connection.split("-")
+            if neighbor != msg['src']:
+                
+                # update route announcment
+                update_msg = {
+                    'msg': {
+                        'netmask': msg_data['netmask'],
+                        'ASPath': msg_data['ASPath'],
+                        'network': network,
+                    },
+                    'src': self.our_addr(neighbor),
+                    'dst': neighbor,
+                    'type': 'update',
+                }
+                self.send(neighbor, json.dumps(update_msg))
         return
 
     def handle_withdraw():
         pass
-    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='route packets')
