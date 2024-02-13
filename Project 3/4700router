@@ -93,8 +93,8 @@ class Router:
     
     def handle_msg(self, msg, srcif):
         '''
-        This function is responsible for handling the message recieved from the
-        neighboring routers.
+        This function takes messages recieved from the neighboring routers &
+        handles them according to the message type.
         Params:
             @msg: The message recieved from the neighboring routers
         '''
@@ -102,8 +102,9 @@ class Router:
 
         if msg_type == 'update':
             self.handle_update(msg, srcif)
+            self.send
         elif msg_type == 'withdraw':
-            self.handle_withdraw(msg)
+            pass
         elif msg_type == 'data':
             pass
         elif msg_type == 'no route':
@@ -124,8 +125,9 @@ class Router:
             @msg: The update message recieved from the neighboring routers
             @srcif: The source interface from which the message was recieved
         '''
-        print("Received update from %s" % srcif)
-        print(msg)
+        print("Received update msg from %s .. **UPDATING TABLE**" % srcif)
+        
+        # extract network attributes
         msg_data = msg["msg"]
         network = msg_data["network"]
         netmask = msg_data["netmask"]
@@ -134,6 +136,11 @@ class Router:
         origin = msg_data["origin"]
         selfOrigin = msg_data["selfOrigin"]
         
+        # append router's ASN to front of ASPath
+        if self.asn not in ASPath:
+            ASPath.insert(0, self.asn)
+        
+        # update forwarding table
         self.forwarding_table[network] = {
             "netmask": netmask,
             "localpref": localpref,
@@ -142,10 +149,9 @@ class Router:
             "selfOrigin": selfOrigin
         }
         print(f"**FORWARDING TABLE**: {self.forwarding_table}")
-
         return
 
-    def handle_withdraw(self, msg):
+    def handle_withdraw():
         pass
     
 
