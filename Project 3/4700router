@@ -120,7 +120,8 @@ class Router:
     def handle_update(self, msg, srcif):
         '''
         This function handles the update message recieved from the neighboring
-        routers & updates the forwarding table of the router.
+        routers & updates the forwarding table of the router. This updated route
+        announcement is forwarded to all neighbors except the source.
         Params:
             @msg: The update message recieved from the neighboring routers
             @srcif: The source interface from which the message was recieved
@@ -146,7 +147,8 @@ class Router:
             'localpref': localpref,
             'ASPath': ASPath,
             'origin': origin,
-            'selfOrigin': selfOrigin
+            'selfOrigin': selfOrigin,
+            'peer': msg['src']
         }
         print(f'**FORWARDING TABLE**: {self.forwarding_table}')
         
@@ -182,16 +184,19 @@ class Router:
     def handle_dump(self, msg, srcif):
         src = msg['src']
         dst = msg['dst']
+        quads = list(int(qdn) for qdn in dst.split('.'))
+        
         table_entries = []
         
         # convert frwd table to list of dicts
         for network, attributes in self.forwarding_table.items():
             table_entry = {
-                'network': network,
-                'netmask': attributes['netmask'],
-                'localpref': attributes['localpref'],
-                'ASPath': attributes['ASPath'],
                 'origin': attributes['origin'],
+                'localpref': attributes['localpref'],
+                'network': network,
+                'ASPath': attributes['ASPath'],
+                'netmask': attributes['netmask'],
+                'peer': attributes['peer'],
                 'selfOrigin': attributes['selfOrigin']
             }
             table_entries.append(table_entry)
