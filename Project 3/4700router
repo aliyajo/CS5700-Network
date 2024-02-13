@@ -118,19 +118,19 @@ class Router:
         else:
             raise ValueError(f"Message type error: {msg_type}")
 
-def handle_withdraw(self, msg):
-    '''
-    This function is responsible for handling the withdraw message recieved from the
-    neighboring routers.
-    Params:
-        @msg: The withdraw message recieved from the neighboring routers
-    '''
-    '''
-    (1) save a copy of the revocation, in case you need it later, 
-    (2) remove the dead entry from the forwarding table, and 
-    (3) possibly send copies of the revocation to other neighboring routers.
-    '''
-    withdraw_copy = msg
+    def handle_withdraw(self, msg):
+        '''
+        This function is responsible for handling the withdraw message recieved from the
+        neighboring routers.
+        Params:
+            @msg: The withdraw message recieved from the neighboring routers
+        '''
+        '''
+        (1) save a copy of the revocation, in case you need it later, 
+        (2) remove the dead entry from the forwarding table, and 
+        (3) possibly send copies of the revocation to other neighboring routers.
+        '''
+        withdraw_copy = msg
     
     
 
