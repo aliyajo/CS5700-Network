@@ -105,8 +105,8 @@ class Router:
             pass
         elif msg_type == 'update':
             pass
-        elif msg_type == 'withdrraw':
-            handle_withdraw(msg)
+        elif msg_type == 'withdraw':
+            self.handle_withdraw(msg)
         elif msg_type == 'data':
             pass
         elif msg_type == 'no route':
@@ -125,7 +125,14 @@ def handle_withdraw(self, msg):
     Params:
         @msg: The withdraw message recieved from the neighboring routers
     '''
-    pass
+    '''
+    (1) save a copy of the revocation, in case you need it later, 
+    (2) remove the dead entry from the forwarding table, and 
+    (3) possibly send copies of the revocation to other neighboring routers.
+    '''
+    withdraw_copy = msg
+    
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='route packets')
