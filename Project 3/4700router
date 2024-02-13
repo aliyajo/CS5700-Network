@@ -93,6 +93,7 @@ class Router:
                 self.handle_msg(msg, srcif)
         return
     
+    
     def handle_msg(self, msg, srcif):
         '''
         This function takes messages recieved from the neighboring routers &
@@ -108,8 +109,6 @@ class Router:
         elif msg_type == 'withdraw':
             pass
         elif msg_type == 'data':
-            pass
-        elif msg_type == 'no route':
             pass
         elif msg_type == 'dump':
             self.handle_dump(msg, srcif)
@@ -176,7 +175,6 @@ class Router:
         pass
 
 
-
     def handle_data():
         pass
     
@@ -191,7 +189,7 @@ class Router:
         # convert frwd table to list of dicts
         for network, attributes in self.forwarding_table.items():
             
-            # TODO: --------- check logic here: cheesed ASPath by removing self.asn ---------
+            # TODO: --------- fix logic here: cheesed ASPath by removing self.asn ---------
             if attributes['ASPath'][0] == self.asn:
                 # delete self-asn
                 attributes['ASPath'].pop(0)   
@@ -219,6 +217,9 @@ class Router:
         print(f"**TABLE MESSAGE**: {table_msg}")
         return
 
+
+    def handle_no_route():
+        pass
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='route packets')
