@@ -108,7 +108,8 @@ class Router:
             self.handle_update(msg, srcif)
             # self.send
         elif msg_type == 'withdraw':
-            self.handle_withdraw(msg)
+            # self.handle_withdraw(msg)
+            self.handle_withdraw(msg, srcif)
         elif msg_type == 'data':
             pass
         elif msg_type == 'dump':
@@ -167,55 +168,93 @@ class Router:
                     },
                     'src': self.our_addr(neighbor),
                     'dst': neighbor,
-                    'type': 'update',
+                    'type': 'update'
                 }
                 self.send(neighbor, json.dumps(update_msg))
         return
 
 
-    def handle_withdraw(self, msg):
-        '''
-        This function is for handling when there are route withdrawal messages.
-        This is the case when a neighboring router may need to withdraw an announcement.
-        This function in response to recieving a withdrawal message is to:
-            1. Save copy of the revocation/cancellation of a statement
-            2. Remove the dead entry from the forwarding table
-            3. The copy that was saved, send this to other neighboring routes
-        Params:
-            @msg:
-        '''
-        # Save a copy of this revocation
-        self.recent_announcement = msg
-        apple = {
-            "BEFORE TABLE": self.forwarding_table}
-        print(json.dumps( apple))
-        # Splicing the withdrawal message 
-        network_removal = []
-        netmask_removal = []
-        # Iterate through the withdrawal message data
-        for i in msg['msg']:
-            # Append the network information into curated list
-            network_removal.append(i['network'])
-            # Append the netmask information into curated list
-            netmask_removal.append(i['netmask'])
+    # def handle_withdraw(self, msg):
+    #     '''
+    #     This function is for handling when there are route withdrawal messages.
+    #     This is the case when a neighboring router may need to withdraw an announcement.
+    #     This function in response to recieving a withdrawal message is to:
+    #         1. Save copy of the revocation/cancellation of a statement
+    #         2. Remove the dead entry from the forwarding table
+    #         3. The copy that was saved, send this to other neighboring routes
+    #     Params:
+    #         @msg:
+    #     '''
+    #     # Save a copy of this revocation
+    #     self.recent_announcement = msg
+    #     apple = {
+    #         "BEFORE TABLE": self.forwarding_table}
+    #     print(json.dumps( apple))
+    #     # Splicing the withdrawal message 
+    #     network_removal = []
+    #     netmask_removal = []
+    #     # Iterate through the withdrawal message data
+    #     for i in msg['msg']:
+    #         # Append the network information into curated list
+    #         network_removal.append(i['network'])
+    #         # Append the netmask information into curated list
+    #         netmask_removal.append(i['netmask'])
 
-        # Iterate through the forwarding table
-        for i in self.forwarding_table:
-            # If the network prefix is in the network removal curated list
-            if i in network_removal:
-            # Then, check if this matching network prefix has the same source as the withdrawal source
-                if self.forwarding_table[i]['peer'] == msg['src']:
-                    # If it does, then remove the network prefix from the forwarding table
-                    del self.forwarding_table[i]
-                    break
+    #     # Iterate through the forwarding table
+    #     for i in self.forwarding_table:
+    #         # If the network prefix is in the network removal curated list
+    #         if i in network_removal:
+    #         # Then, check if this matching network prefix has the same source as the withdrawal source
+    #             if self.forwarding_table[i]['peer'] == msg['src']:
+    #                 # If it does, then remove the network prefix from the forwarding table
+    #                 del self.forwarding_table[i]
+    #                 break
             
-        # Here for debugging purposes 
-        testing = {
-            "**Hello**" : network_removal, 
-            "TABLE" : self.forwarding_table
-        }
-        print(json.dumps(testing))
+    #     # Here for debugging purposes 
+    #     testing = {
+    #         "**Hello**" : network_removal, 
+    #         "TABLE" : self.forwarding_table
+    #     }
+    #     print(json.dumps(testing))
+    #     return
+
+    def handle_withdraw(self, msg, srcif):
+        print(f"Received withdraw msg from {srcif} .. **REMOVING ROUTE**")
+        # iterate through received withdrawal data to pull network & netmask
+        for withdraw_data in msg['msg']:
+            network = withdraw_data['network']
+            netmask = withdraw_data['netmask']
+            
+            # construct complex key to make network/netmask combo unique
+            # since the withdraw msg we receive gives us the network and netmask
+            # so we remove only the entry that matches the network and netmask combo
+            table_key = f"{network}/{netmask}"
+            
+            if table_key in self.forwarding_table:
+                del self.forwarding_table[table_key]
+                print(f"**REMOVED NETWORK/NETMASK**: {table_key}")
+                
+        # forward withdrawal announcement to all neighbors except to source of
+        # the withdrawal announcement
+        for connection in self.connections:
+            port, neighbor, relation = connection.split("-")
+            if neighbor != msg['src']:
+                
+                # create the withdraw route announcment for our router to send
+                # out to all neighbors
+                withdraw_msg = {
+                    'msg': [{
+                        'netmask': withdraw_data['netmask'],
+                        'network': withdraw_data['network']
+                    }],
+                    'src': self.our_addr(neighbor),
+                    'dst': neighbor,
+                    'type': 'withdraw'
+                }
+                # send the withdraw announcement
+                self.send(neighbor, json.dumps(withdraw_msg))
         return
+                    
 
     def handle_data():
         pass
