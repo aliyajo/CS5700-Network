@@ -209,6 +209,7 @@ class Router:
                     del self.forwarding_table[i]
                     break
             
+        # Here for debugging purposes 
         testing = {
             "**Hello**" : network_removal, 
             "TABLE" : self.forwarding_table
