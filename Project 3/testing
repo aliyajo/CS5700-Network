@@ -2,38 +2,41 @@
 
 def main():
   msg = {
-    "src":  "<source IP>",        # Example: 172.65.0.2
+    "src":  "10.0.0.2",        # Example: 172.65.0.2
     "dst":  "<destination IP>",   # Example: 172.65.0.1
     "type": "withdraw",                   
     "msg": [
-      {"network": "<network prefix1>", "netmask": "<associated subnet mask1>"},
-      {"network": "<network prefix2>", "netmask": "<associated subnet mask2>"},
+      {"network": "192.168.1.0", "netmask": "<associated subnet mask1>"},
+      {"network": "11.0.0.0", "netmask": "<associated subnet mask2>"},
     ]
   }
   hi = {"192.168.1.0": {"netmask": "255.255.255.0", "localpref": 100, "ASPath": [16, 1], "origin": "EGP", "selfOrigin": True, "peer": "192.168.0.2"}, 
             "172.169.0.0": {"netmask": "255.255.0.0", "localpref": 100, "ASPath": [16, 3, 2], "origin": "EGP", "selfOrigin": False, "peer": "10.0.0.2"}, 
             "11.0.0.0": {"netmask": "255.0.0.0", "localpref": 100, "ASPath": [16, 3], "origin": "EGP", "selfOrigin": True, "peer": "10.0.0.2"}
   }
-  network = ["192.168.1.0", "123.45.6.7"]
-  netmask = ["255.255.255.0"]
-  for i in hi:
-    print("Beginning " + i)
-    if i in network:
-      print(hi[i]['netmask'])
-      if hi[i]['netmask'] in netmask:
-        print(hi[i])
+  # Splicing the withdrawal message 
+  network_removal = []
+  netmask_removal = []
+  # Iterate through the withdrawal message data
+  for i in msg ['msg']:
+    # Append the network information into curated list
+    network_removal.append(i['network'])
+    # Append the netmask information into curated list
+    netmask_removal.append(i['netmask'])
 
-  network = []
-  netmask = []
-  for i in msg:
-    if i == "msg":
-      withdrawal_message = msg[i]
-      print("\n\n")
-      for data in withdrawal_message:
-        for i in data:
-          network.append(data['network'])
-          netmask.append(data['netmask'])
-          break
+  # Iterate through the forwarding table
+  for i in hi:
+    # If the network prefix is in the network removal curated list
+    if i in network_removal:
+      # Then, check if this matching network prefix has the same source as the withdrawal source
+      if hi[i]['peer'] == msg['src']:
+        # If it does, then remove the network prefix from the forwarding table
+        del hi[i]
+        break
+  
+  print(hi)
+      
+
           
 
 if __name__ == "__main__":

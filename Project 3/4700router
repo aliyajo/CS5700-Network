@@ -148,6 +148,7 @@ class Router:
             'ASPath': ASPath,
             'origin': origin,
             'selfOrigin': selfOrigin,
+            # Neighbor IP Address
             'peer': msg['src']
         }
         print(f'**FORWARDING TABLE**: {self.forwarding_table}')
@@ -185,27 +186,31 @@ class Router:
         '''
         # Save a copy of this revocation
         self.recent_announcement = msg
+        apple = {
+            "BEFORE TABLE": self.forwarding_table}
+        print(json.dumps( apple))
+        # Splicing the withdrawal message 
+        network_removal = []
+        netmask_removal = []
+        # Iterate through the withdrawal message data
+        for i in msg['msg']:
+            # Append the network information into curated list
+            network_removal.append(i['network'])
+            # Append the netmask information into curated list
+            netmask_removal.append(i['netmask'])
 
-        # 
-        network = []
-        netmask = []
-        for i in msg:
-            if i == "msg":
-                withdrawal_message = msg[i]
-                for data in withdrawal_message:
-                    for i in data:
-                        network.append(data['network'])
-                        netmask.append(data['netmask'])
-                        break
-
-        # Remove the dead entry from the forwarding table
-        for network_ip in list(self.forwarding_table.keys()):
-            if network_ip in network and self.forwarding_table[network_ip]['netmask'] in netmask:
-                del self.forwarding_table[network_ip]
-
-        
+        # Iterate through the forwarding table
+        for i in self.forwarding_table:
+            # If the network prefix is in the network removal curated list
+            if i in network_removal:
+            # Then, check if this matching network prefix has the same source as the withdrawal source
+                if self.forwarding_table[i]['peer'] == msg['src']:
+                    # If it does, then remove the network prefix from the forwarding table
+                    del self.forwarding_table[i]
+                    break
+            
         testing = {
-            "**Hello**" : network, 
+            "**Hello**" : network_removal, 
             "TABLE" : self.forwarding_table
         }
         print(json.dumps(testing))
