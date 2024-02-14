@@ -106,7 +106,6 @@ class Router:
 
         if msg_type == 'update':
             self.handle_update(msg, srcif)
-            # self.send
         elif msg_type == 'withdraw':
             # self.handle_withdraw(msg)
             self.handle_withdraw(msg, srcif)
@@ -129,8 +128,9 @@ class Router:
         '''
         print('Received update msg from %s .. **UPDATING TABLE**' % srcif)
         
-        # extract network attributes
+        # extract msg portion of update announcement
         msg_data = msg['msg']
+        # store network attributes
         network = msg_data['network']
         netmask = msg_data['netmask']
         localpref = msg_data['localpref']
@@ -139,6 +139,7 @@ class Router:
         selfOrigin = msg_data['selfOrigin']
         
         # append router's ASN to front of ASPath
+        # this is a list of ASNs that the route announcement has traversed
         if self.asn not in ASPath:
             ASPath.insert(0, self.asn)
         
