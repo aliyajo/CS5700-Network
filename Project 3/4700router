@@ -7,8 +7,10 @@ class Router:
     relations = {}
     sockets = {}
     ports = {}
+    # Dictionary to maintain our forwarding table
     forwarding_table = {}
-    recent_announcement = None
+    # List to maintain the cache of announcements recieved by the router
+    announcement_cache = []
 
     def __init__(self, asn, connections):
         '''
