@@ -129,6 +129,8 @@ class Router:
         
         # extract msg portion of update announcement
         msg_data = msg['msg']
+        peer = msg['src'] # source/peer/neighbor IP of announcement
+        dst = msg['dst'] # destination IP of announcement
         # store network attributes
         network = msg_data['network']
         netmask = msg_data['netmask']
@@ -136,30 +138,45 @@ class Router:
         ASPath = msg_data['ASPath']
         origin = msg_data['origin']
         selfOrigin = msg_data['selfOrigin']
-        
+
+        # TODO: check if this is the correct logic? idk what ASPath is..
         # append router's ASN to front of ASPath
         # this is a list of ASNs that the route announcement has traversed
         if self.asn not in ASPath:
             ASPath.insert(0, self.asn)
         
-        # update forwarding table
-        self.forwarding_table[network] = {
-            'netmask': netmask,
-            'localpref': localpref,
-            'ASPath': ASPath,
-            'origin': origin,
-            'selfOrigin': selfOrigin,
-            # Neighbor IP Address
-            'peer': msg['src']
-        }
-        print(f'**FORWARDING TABLE**: {self.forwarding_table}')
+        # if the network IP in the first layer of the dict, not in forwarding
+        # table, add it along with paths of announcements
+        if network not in self.forwarding_table:
+            # FIRST LAYER
+            self.forwarding_table[network] = {
+                'src': peer, # source/peer/neighbor IP
+                'paths': [],
+            }
         
-        # forward update to all neighbors except source
+        # if peer/src isnt in the paths of the forwarding table, add it, and
+        # update the forwarding table
+        if peer not in self.forwarding_table[network]['paths']:
+            # SECOND LAYER
+            self.forwarding_table[network]['paths'].append({
+                'netmask': netmask,
+                'dst': dst,
+                'ASPath': ASPath,
+                'localpref': localpref,
+                'origin': origin,
+                'selfOrigin': selfOrigin,
+            })
+        
+        # formated print for debugging
+        print("**FORWARDING TABLE UPDATED**:\n" + json.dumps(self.forwarding_table, indent=4))
+        # print(f'**FORWARDING TABLE**: {self.forwarding_table}')
+        
+        # forward update announcement to all neighbors except source IP
         for connection in self.connections:
             port, neighbor, relation = connection.split("-")
             if neighbor != msg['src']:
                 
-                # update route announcment
+                # create update route announcment to be sent out
                 update_msg = {
                     'msg': {
                         'netmask': msg_data['netmask'],
@@ -170,6 +187,7 @@ class Router:
                     'dst': neighbor,
                     'type': 'update'
                 }
+                # send the update announcement
                 self.send(neighbor, json.dumps(update_msg))
         return
 
