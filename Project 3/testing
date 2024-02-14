@@ -1,0 +1,18 @@
+#!/usr/bin/env -S python3 -u
+
+def main():
+  msg = {
+    "src":  "<source IP>",        # Example: 172.65.0.2
+    "dst":  "<destination IP>",   # Example: 172.65.0.1
+    "type": "withdraw",                   
+    "msg": [
+      {"network": "<network prefix>", "netmask": "<associated subnet mask>"},
+      {"network": "<network prefix>", "netmask": "<associated subnet mask>"},
+      ...
+    ]
+  }
+  
+  print(msg)
+
+if __name__ == "__main__":
+  main()

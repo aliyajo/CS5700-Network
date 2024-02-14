@@ -8,6 +8,7 @@ class Router:
     sockets = {}
     ports = {}
     forwarding_table = {}
+    recent_announcement = None
 
     def __init__(self, asn, connections):
         '''
@@ -106,7 +107,7 @@ class Router:
             self.handle_update(msg, srcif)
             # self.send
         elif msg_type == 'withdraw':
-            pass
+            self.handle_withdraw(msg)
         elif msg_type == 'data':
             pass
         elif msg_type == 'no route':
@@ -172,10 +173,28 @@ class Router:
         return
 
 
-    def handle_withdraw():
-        pass
-
-
+    def handle_withdraw(self, msg):
+        '''
+        This function is for handling when there are route withdrawal messages.
+        This is the case when a neighboring router may need to withdraw an announcement.
+        This function in response to recieving a withdrawal message is to:
+            1. Save copy of the revocation/cancellation of a statement
+            2. Remove the dead entry from the forwarding table
+            3. The copy that was saved, send this to other neighboring routes
+        Params:
+            @msg:
+        '''
+        
+        # Save a copy of this revocation
+        
+        withdrawal_msg = msg['msg']
+        for i in withdrawal_msg:
+            network = i['network']
+        testing = {
+            "**Hello**" : network
+        }
+        json.dumps(testing)
+        return
 
     def handle_data():
         pass
