@@ -6,13 +6,35 @@ def main():
     "dst":  "<destination IP>",   # Example: 172.65.0.1
     "type": "withdraw",                   
     "msg": [
-      {"network": "<network prefix>", "netmask": "<associated subnet mask>"},
-      {"network": "<network prefix>", "netmask": "<associated subnet mask>"},
-      ...
+      {"network": "<network prefix1>", "netmask": "<associated subnet mask1>"},
+      {"network": "<network prefix2>", "netmask": "<associated subnet mask2>"},
     ]
   }
-  
-  print(msg)
+  hi = {"192.168.1.0": {"netmask": "255.255.255.0", "localpref": 100, "ASPath": [16, 1], "origin": "EGP", "selfOrigin": True, "peer": "192.168.0.2"}, 
+            "172.169.0.0": {"netmask": "255.255.0.0", "localpref": 100, "ASPath": [16, 3, 2], "origin": "EGP", "selfOrigin": False, "peer": "10.0.0.2"}, 
+            "11.0.0.0": {"netmask": "255.0.0.0", "localpref": 100, "ASPath": [16, 3], "origin": "EGP", "selfOrigin": True, "peer": "10.0.0.2"}
+  }
+  network = ["192.168.1.0", "123.45.6.7"]
+  netmask = ["255.255.255.0"]
+  for i in hi:
+    print("Beginning " + i)
+    if i in network:
+      print(hi[i]['netmask'])
+      if hi[i]['netmask'] in netmask:
+        print(hi[i])
+
+  network = []
+  netmask = []
+  for i in msg:
+    if i == "msg":
+      withdrawal_message = msg[i]
+      print("\n\n")
+      for data in withdrawal_message:
+        for i in data:
+          network.append(data['network'])
+          netmask.append(data['netmask'])
+          break
+          
 
 if __name__ == "__main__":
   main()

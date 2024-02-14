@@ -183,16 +183,32 @@ class Router:
         Params:
             @msg:
         '''
-        
         # Save a copy of this revocation
+        self.recent_announcement = msg
+
+        # 
+        network = []
+        netmask = []
+        for i in msg:
+            if i == "msg":
+                withdrawal_message = msg[i]
+                for data in withdrawal_message:
+                    for i in data:
+                        network.append(data['network'])
+                        netmask.append(data['netmask'])
+                        break
+
+        # Remove the dead entry from the forwarding table
+        for network_ip in list(self.forwarding_table.keys()):
+            if network_ip in network and self.forwarding_table[network_ip]['netmask'] in netmask:
+                del self.forwarding_table[network_ip]
+
         
-        withdrawal_msg = msg['msg']
-        for i in withdrawal_msg:
-            network = i['network']
         testing = {
-            "**Hello**" : network
+            "**Hello**" : network, 
+            "TABLE" : self.forwarding_table
         }
-        json.dumps(testing)
+        print(json.dumps(testing))
         return
 
     def handle_data():
