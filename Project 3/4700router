@@ -107,7 +107,8 @@ class Router:
         if msg_type == 'update':
             self.handle_update(msg, srcif)
         elif msg_type == 'withdraw':
-            self.handle_withdraw(msg)
+            # self.handle_withdraw(msg)
+            pass
         elif msg_type == 'data':
             pass
         elif msg_type == 'dump':
@@ -149,13 +150,11 @@ class Router:
         # table, add it along with paths of announcements
         if network not in self.forwarding_table:
             # FIRST LAYER
-            self.forwarding_table[network] = {
-                peer: {}
-            }
+            self.forwarding_table[network] = {}
         
         # if peer/src isnt in the paths of the forwarding table, add it, and
         # update the forwarding table
-        if peer not in self.forwarding_table[network][peer]:
+        if peer not in self.forwarding_table[network]:
             # SECOND LAYER
             self.forwarding_table[network][peer] = {
                 'netmask': netmask,
