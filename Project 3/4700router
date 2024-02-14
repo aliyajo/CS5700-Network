@@ -150,22 +150,21 @@ class Router:
         if network not in self.forwarding_table:
             # FIRST LAYER
             self.forwarding_table[network] = {
-                'src': peer, # source/peer/neighbor IP
-                'paths': [],
+                peer: {}
             }
         
         # if peer/src isnt in the paths of the forwarding table, add it, and
         # update the forwarding table
-        if peer not in self.forwarding_table[network]['paths']:
+        if peer not in self.forwarding_table[network][peer]:
             # SECOND LAYER
-            self.forwarding_table[network]['paths'].append({
+            self.forwarding_table[network][peer] = {
                 'netmask': netmask,
                 'dst': dst,
                 'ASPath': ASPath,
                 'localpref': localpref,
                 'origin': origin,
                 'selfOrigin': selfOrigin,
-            })
+            }
         
         # formated print for debugging
         print("**FORWARDING TABLE UPDATED**:\n" + json.dumps(self.forwarding_table, indent=4))
