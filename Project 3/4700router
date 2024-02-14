@@ -107,8 +107,7 @@ class Router:
         if msg_type == 'update':
             self.handle_update(msg, srcif)
         elif msg_type == 'withdraw':
-            # self.handle_withdraw(msg)
-            self.handle_withdraw(msg, srcif)
+            self.handle_withdraw(msg)
         elif msg_type == 'data':
             pass
         elif msg_type == 'dump':
@@ -219,8 +218,13 @@ class Router:
     #     print(json.dumps(testing))
     #     return
 
-    def handle_withdraw(self, msg, srcif):
-        print(f"Received withdraw msg from {srcif} .. **REMOVING ROUTE**")
+    def handle_withdraw(self, msg):
+        '''
+        Testing different withdraw logic!
+        '''
+        # debugging
+        print(f"Received withdraw msg .. **REMOVING ROUTE**")
+        
         # iterate through received withdrawal data to pull network & netmask
         for withdraw_data in msg['msg']:
             network = withdraw_data['network']
