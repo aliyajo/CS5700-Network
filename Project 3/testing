@@ -5,47 +5,27 @@
 This is just a testing file I am using to help with parsing
 '''
 def main():
-  msg = {
-    "192.168.1.0": {
-      "10.0.0.1": {
-      "netmask": "255.255.255.0",
-      "dst": "192.168.0.1",
-      "ASPath": [
-            16,
-            1
-              ],
-      "localpref": 100,
-      "origin": "EGP",
-      "selfOrigin": True
-      },
-      
-      "10.2.0.1": {
-      "netmask": "255.255.255.0",
-      "dst": "192.168.0.1",
-      "ASPath": [
-            16,
-            1
-              ],
-      "localpref": 100,
-      "origin": "EGP",
-      "selfOrigin": True
-      } 
-    }
-  }
-    
-  withdrawal_message = {'msg': [{'netmask': '255.255.255.0', 'network': '192.168.1.0'}], 'src': '10.0.0.1', 'dst': '10.0.0.2', 'type': 'withdraw'}
+
+  subnet_mask = "110.40.240.0"
+  subnet_split = subnet_mask.split('.')
+  print(subnet_split)
+  converted_subnet = ""
+  for i in subnet_split:
+      binary = ""
+      decimal = int(i)
+      while decimal > 0:
+        binary = str(decimal % 2) + binary
+        decimal = decimal // 2
+      # If the binary number is less than 8 bits long, add leading zeros
+      binary = binary.zfill(8)
+      converted_subnet += str(binary)
+  print(converted_subnet)
+  print(len(converted_subnet))
+
   
-  src = withdrawal_message['src']
-  network_removal, netmask_removal = [(i['network'], i['netmask']) for i in withdrawal_message['msg']][0]
-  for i in msg:
-    if i == network_removal:
-      for j in msg[i]:
-        if j == src:
-          if msg[i][j]['netmask'] == netmask_removal:
-            del msg[i][j]
-            break
 
-  print(msg)
+    
 
+  
 if __name__ == "__main__":
   main()

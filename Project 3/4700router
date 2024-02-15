@@ -118,6 +118,41 @@ class Router:
         else:
             raise ValueError(f'Message type error: {msg_type}')
 
+    def converting_to_binary(self, address):
+        '''
+        This function is responsible for converting the given IP address
+        into its corresponding binary notation.
+        '''
+        subnet_split = address.split('.')
+        converted_subnet = ""
+        for i in subnet_split:
+            binary = ""
+            decimal = int(i)
+            while decimal > 0:
+                binary = str(decimal % 2) + binary
+                decimal = decimal // 2
+            # If the binary number is less than 8 bits long, add leading zeros
+            binary = binary.zfill(8)
+            converted_subnet += str(binary)
+        return converted_subnet
+    
+    def converting_to_cidr(self, subnet_mask, ip_address):
+        '''
+        This function is responsible for converting given ip address, and subnet mask into
+        their corresponding CIDR notation.
+        '''
+        # ** Still Working On This Function **
+        # Figure out subnet mask CIDR prefix
+        converted_subnet = self.converting_to_binary(subnet_mask)
+        consecutive_ones = 0
+        for i in converted_subnet:
+            if i == '1':
+                consecutive_ones += 1
+            else:
+                break 
+        
+        
+
 
     def handle_update(self, msg, srcif):
         '''
