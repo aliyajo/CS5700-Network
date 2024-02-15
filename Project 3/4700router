@@ -112,7 +112,7 @@ class Router:
             self.handle_withdraw(msg)
             pass
         elif msg_type == 'data':
-            pass
+            self.handle_data(msg)
         elif msg_type == 'dump':
             self.handle_dump(msg, srcif)
         else:
@@ -336,8 +336,48 @@ class Router:
     #     return
                     
 
-    def handle_data():
-        pass
+    def handle_data(self, msg):
+        # extract dst from data message received
+        dst = msg['dst']
+        data_msg = msg['msg']
+        
+        for i in self.forwarding_table:
+            if dst in self.figure_out_range(i):
+                print(f"******* TEST ******{dst}")
+            
+            
+            
+            
+            # forward update announcement to all neighbors except source IP
+            for connection in self.connections:
+                port, neighbor, relation = connection.split("-")
+                if neighbor != msg['src']:
+                    # create update route announcment to send to non-source neighbors
+                    # message format based on expected test case
+                    data_msg = {
+                        'msg': {
+                            'netmask': data_msg['netmask'],
+                            'ASPath': data_msg['ASPath'],
+                            'network': network,
+                        },
+                        # put our IP address as the source of the announcement to be sent
+                        'src': self.our_addr(neighbor),
+                        # destination IP of the announcement, sending to our neighbor
+                        'dst': neighbor,
+                        'type': 'update'
+                    }
+                    # send the update announcement
+                    self.send(neighbor, json.dumps(update_msg))
+            
+                
+                
+                
+                return
+            
+            
+        
+        
+        
     
     
     def handle_dump(self, msg, srcif):
