@@ -6,42 +6,46 @@ This is just a testing file I am using to help with parsing
 '''
 def main():
   msg = {
-    "src":  "10.0.0.2",        # Example: 172.65.0.2
-    "dst":  "<destination IP>",   # Example: 172.65.0.1
-    "type": "withdraw",                   
-    "msg": [
-      {"network": "192.168.1.0", "netmask": "<associated subnet mask1>"},
-      {"network": "11.0.0.0", "netmask": "<associated subnet mask2>"},
-    ]
-  }
-  hi = {"192.168.1.0": {"netmask": "255.255.255.0", "localpref": 100, "ASPath": [16, 1], "origin": "EGP", "selfOrigin": True, "peer": "192.168.0.2"}, 
-            "172.169.0.0": {"netmask": "255.255.0.0", "localpref": 100, "ASPath": [16, 3, 2], "origin": "EGP", "selfOrigin": False, "peer": "10.0.0.2"}, 
-            "11.0.0.0": {"netmask": "255.0.0.0", "localpref": 100, "ASPath": [16, 3], "origin": "EGP", "selfOrigin": True, "peer": "10.0.0.2"}
-  }
-  # Splicing the withdrawal message 
-  network_removal = []
-  netmask_removal = []
-  # Iterate through the withdrawal message data
-  for i in msg ['msg']:
-    # Append the network information into curated list
-    network_removal.append(i['network'])
-    # Append the netmask information into curated list
-    netmask_removal.append(i['netmask'])
-
-  # Iterate through the forwarding table
-  for i in hi:
-    # If the network prefix is in the network removal curated list
-    if i in network_removal:
-      # Then, check if this matching network prefix has the same source as the withdrawal source
-      if hi[i]['peer'] == msg['src']:
-        # If it does, then remove the network prefix from the forwarding table
-        del hi[i]
-        break
-  
-  print(hi)
+    "192.168.1.0": {
+      "10.0.0.1": {
+      "netmask": "255.255.255.0",
+      "dst": "192.168.0.1",
+      "ASPath": [
+            16,
+            1
+              ],
+      "localpref": 100,
+      "origin": "EGP",
+      "selfOrigin": True
+      },
       
+      "10.2.0.1": {
+      "netmask": "255.255.255.0",
+      "dst": "192.168.0.1",
+      "ASPath": [
+            16,
+            1
+              ],
+      "localpref": 100,
+      "origin": "EGP",
+      "selfOrigin": True
+      } 
+    }
+  }
+    
+  withdrawal_message = {'msg': [{'netmask': '255.255.255.0', 'network': '192.168.1.0'}], 'src': '10.0.0.1', 'dst': '10.0.0.2', 'type': 'withdraw'}
+  
+  src = withdrawal_message['src']
+  network_removal, netmask_removal = [(i['network'], i['netmask']) for i in withdrawal_message['msg']][0]
+  for i in msg:
+    if i == network_removal:
+      for j in msg[i]:
+        if j == src:
+          if msg[i][j]['netmask'] == netmask_removal:
+            del msg[i][j]
+            break
 
-          
+  print(msg)
 
 if __name__ == "__main__":
   main()

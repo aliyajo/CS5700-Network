@@ -109,7 +109,7 @@ class Router:
         if msg_type == 'update':
             self.handle_update(msg, srcif)
         elif msg_type == 'withdraw':
-            # self.handle_withdraw(msg)
+            self.handle_withdraw(msg)
             pass
         elif msg_type == 'data':
             pass
@@ -128,6 +128,9 @@ class Router:
             @msg: The update message recieved from the neighboring routers
             @srcif: The source interface from which the message was recieved
         '''
+        # Save a copy of this revocation
+        self.announcement_cache.append(msg)
+
         print('Received update msg from %s .. **UPDATING TABLE**' % srcif)
         
         # extract msg portion of update announcement
@@ -164,7 +167,7 @@ class Router:
                 'ASPath': ASPath,
                 'localpref': localpref,
                 'origin': origin,
-                'selfOrigin': selfOrigin,
+                'SelfOrigin': selfOrigin,
             }
         
         # formated print for debugging
@@ -204,36 +207,28 @@ class Router:
             @msg:
         '''
         # Save a copy of this revocation
-        self.recent_announcement = msg
-        apple = {
-            "BEFORE TABLE": self.forwarding_table}
-        print(json.dumps( apple))
-        # Splicing the withdrawal message 
-        network_removal = []
-        netmask_removal = []
-        # Iterate through the withdrawal message data
-        for i in msg['msg']:
-            # Append the network information into curated list
-            network_removal.append(i['network'])
-            # Append the netmask information into curated list
-            netmask_removal.append(i['netmask'])
-
+        self.announcement_cache.append(msg)
+        # Extracting the source of the withdrawal message
+        src = msg['src']
+        # From the withdrawal message, extract the network and netmask
+        network_removal, netmask_removal = [(i['network'], i['netmask']) for i in msg['msg']][0]
         # Iterate through the forwarding table
         for i in self.forwarding_table:
-            # If the network prefix is in the network removal curated list
-            if i in network_removal:
-            # Then, check if this matching network prefix has the same source as the withdrawal source
-                if self.forwarding_table[i]['peer'] == msg['src']:
-                    # If it does, then remove the network prefix from the forwarding table
-                    del self.forwarding_table[i]
-                    break
-            
-        # Here for debugging purposes 
-        testing = {
-            "**Hello**" : network_removal, 
-            "TABLE" : self.forwarding_table
-        }
-        print(json.dumps(testing))
+            # If the network is in the forwarding table
+            if i == network_removal:
+                # Iterate through the paths of the forwarding table
+                for j in self.forwarding_table[i]:
+                    # If the path is the same as the source of the withdrawal message
+                    if j == src:
+                        # If the netmask is the same as the netmask of the withdrawal message
+                        if self.forwarding_table[i][j]['netmask'] == netmask_removal:
+                            # Remove the path from the forwarding table
+                            del self.forwarding_table[i][j]
+                            break
+        
+        # Sending copies to other neighbors
+        # TODO: Implement this
+
         return
 
     # def handle_withdraw(self, msg):
