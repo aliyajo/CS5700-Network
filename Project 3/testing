@@ -1,80 +1,74 @@
 #!/usr/bin/env -S python3 -u
-import struct
-import struct
+
 
 '''
-This is just a testing file
+This is just a testing file I am using to help with parsing
 '''
-def converting_to_binary(address):
-    '''
-    This function is responsible for converting the given IP address
-    into its corresponding binary notation.
-    Params:
-        @address: The IP address to be converted
-    Returns: The converted IP address in binary notation
-    '''
-    # Split the address into its quads
-    subnet_split = address.split('.')
-    converted_address = ""
-    # Iterate through the quads
-    for i in subnet_split:
-        binary = ""
-        # Convert the quad into an integer
-        decimal = int(i)
-        # While the decimal is not zero
-        while decimal > 0:
-            # Convert the decimal into binary
-            binary = str(decimal % 2) + binary
-            decimal = decimal // 2
-        # If the binary number is less than 8 bits long, add leading zeros
-        binary = binary.zfill(8)
-        converted_address += str(binary)
-    # Return the converted subnet
-    return converted_address
-
-def test():
-  CIDR_address = "110.40.240.16/22"
-  ip_address = CIDR_address.split('/')[0]
-  cidr = int(CIDR_address.split('/')[1])
-  host_bits = 32 - cidr
-  i = struct.unpack('>I', struct.pack('!4B', *[int(x) for x in ip_address.split('.')]))[0]
-  start = (i >> host_bits) << host_bits
-  end = start | ((1 << host_bits) - 1)
-  subnet_addresses = []
-  for i in range(start, end):
-      subnet_addresses.append('.'.join(str((i >> (8 * j)) & 255) for j in range(3, -1, -1)))
-  return subnet_addresses
 def main():
-  print(len(test()))
-  
-if __name__ == "__main__":
-    main()
-  
-  
-
-
-  
-
-
-
-  
-
+  msg = {
+    "192.168.1.0": {
+      "10.0.0.1": {
+      "netmask": "255.255.255.0",
+      "dst": "192.168.0.1",
+      "ASPath": [
+            16,
+            1
+              ],
+      "localpref": 100,
+      "origin": "EGP",
+      "selfOrigin": True
+      },
+      
+      "10.2.0.1": {
+      "netmask": "255.255.255.0",
+      "dst": "192.168.0.1",
+      "ASPath": [
+            16,
+            1
+              ],
+      "localpref": 100,
+      "origin": "EGP",
+      "selfOrigin": True
+      } 
+    },
     
+    "192.278.1.0": {
+      "10.0.0.1": {
+      "netmask": "255.255.255.0",
+      "dst": "192.168.0.1",
+      "ASPath": [
+            16,
+            1
+              ],
+      "localpref": 100,
+      "origin": "EGP",
+      "selfOrigin": True
+      },
+      
+      "10.2.0.1": {
+      "netmask": "255.255.255.0",
+      "dst": "192.168.0.1",
+      "ASPath": [
+            16,
+            1
+              ],
+      "localpref": 100,
+      "origin": "EGP",
+      "selfOrigin": True
+      } 
+    }
+  }
 
-  
+  dst = "192.278.1.0"
+    
+  for i in msg:
+    if i == dst:
+      
+
 if __name__ == "__main__":
   main()
   
 
 
-  
-
-
 
   
-
-    
-
-  
-if __name__ == "__main__":
-  main()
