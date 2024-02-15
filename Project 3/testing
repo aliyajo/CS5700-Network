@@ -6,7 +6,9 @@ This is just a testing file I am using to help with parsing
 '''
 def main():
 
-  subnet_mask = "110.40.240.0"
+  ip_addres = "192.23.45.0"
+
+  subnet_mask = "255.240.0.0"
   subnet_split = subnet_mask.split('.')
   print(subnet_split)
   converted_subnet = ""
@@ -19,8 +21,17 @@ def main():
       # If the binary number is less than 8 bits long, add leading zeros
       binary = binary.zfill(8)
       converted_subnet += str(binary)
-  print(converted_subnet)
-  print(len(converted_subnet))
+  consecutive_ones = 0
+  for i in converted_subnet:
+      if i == '1':
+          consecutive_ones += 1
+      else:
+          break 
+  print(consecutive_ones)
+  CIDR_address = subnet_mask + "/" + str(consecutive_ones)
+  print(CIDR_address)
+
+
 
   
 

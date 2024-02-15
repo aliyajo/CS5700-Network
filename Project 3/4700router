@@ -156,9 +156,9 @@ class Router:
                 consecutive_ones += 1
             else:
                 break 
+        CIDR_address = ip_address + "/" + str(consecutive_ones)
+        return CIDR_address
         
-        
-
 
     def handle_update(self, msg):
         '''
@@ -178,6 +178,7 @@ class Router:
         dst = msg['dst'] # destination IP of announcement
         # store network attributes
         network = msg_data['network']
+        network = self.converting_to_cidr(msg_data['netmask'], network)
         netmask = msg_data['netmask']
         localpref = msg_data['localpref']
         ASPath = msg_data['ASPath']
