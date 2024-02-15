@@ -123,17 +123,23 @@ class Router:
         This function is responsible for converting the given IP address
         into its corresponding binary notation.
         '''
+        # Split the address into its quads
         subnet_split = address.split('.')
         converted_subnet = ""
+        # Iterate through the quads
         for i in subnet_split:
             binary = ""
+            # Convert the quad into an integer
             decimal = int(i)
+            # While the decimal is not zero
             while decimal > 0:
+                # Convert the decimal into binary
                 binary = str(decimal % 2) + binary
                 decimal = decimal // 2
             # If the binary number is less than 8 bits long, add leading zeros
             binary = binary.zfill(8)
             converted_subnet += str(binary)
+        # Return the converted subnet
         return converted_subnet
     
     def converting_to_cidr(self, subnet_mask, ip_address):
