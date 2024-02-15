@@ -128,7 +128,7 @@ class Router:
         '''
         # Split the address into its quads
         subnet_split = address.split('.')
-        converted_subnet = ""
+        converted_address = ""
         # Iterate through the quads
         for i in subnet_split:
             binary = ""
@@ -141,9 +141,9 @@ class Router:
                 decimal = decimal // 2
             # If the binary number is less than 8 bits long, add leading zeros
             binary = binary.zfill(8)
-            converted_subnet += str(binary)
+            converted_address += str(binary)
         # Return the converted subnet
-        return converted_subnet
+        return converted_address
     
     def converting_to_cidr(self, subnet_mask, ip_address):
         '''
@@ -167,7 +167,32 @@ class Router:
         CIDR_address = ip_address + "/" + str(consecutive_ones)
         # Return the CIDR address
         return CIDR_address
-        
+    
+    def figure_out_range(self, CIDR_address):
+        '''
+        This function is responsible for figuring out the range of IP addresses.
+        Params:
+            @CIDR_address: The CIDR address
+        Returns: A list containing the range of IP addresses
+        '''
+        # Isolate the ip address from the CIDR notation
+        ip_address = CIDR_address.split('/')[0]
+        # Isolate the CIDR from the CIDR notation
+        cidr = int(CIDR_address.split('/')[1])
+        # Figure out the number of host bits
+        host_bits = 32 - cidr
+        # Able to convert the ip address into a 32-bit unsigned integer
+        i = struct.unpack('>I', struct.pack('!4B', *[int(x) for x in ip_address.split('.')]))[0]
+        # Figure out the start of the range
+        start = (i >> host_bits) << host_bits
+        # Figure out the end of the range
+        end = start | ((1 << host_bits) - 1)
+        subnet_addresses = []
+        # Iterate through the range of IP addresses
+        for i in range(start, end):
+            subnet_addresses.append('.'.join(str((i >> (8 * j)) & 255) for j in range(3, -1, -1)))
+        # Return the range of IP addresses
+        return subnet_addresses
 
     def handle_update(self, msg):
         '''

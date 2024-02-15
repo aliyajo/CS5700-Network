@@ -1,35 +1,73 @@
 #!/usr/bin/env -S python3 -u
-
+import struct
+import struct
 
 '''
-This is just a testing file I am using to help with parsing
+This is just a testing file
 '''
+def converting_to_binary(address):
+    '''
+    This function is responsible for converting the given IP address
+    into its corresponding binary notation.
+    Params:
+        @address: The IP address to be converted
+    Returns: The converted IP address in binary notation
+    '''
+    # Split the address into its quads
+    subnet_split = address.split('.')
+    converted_address = ""
+    # Iterate through the quads
+    for i in subnet_split:
+        binary = ""
+        # Convert the quad into an integer
+        decimal = int(i)
+        # While the decimal is not zero
+        while decimal > 0:
+            # Convert the decimal into binary
+            binary = str(decimal % 2) + binary
+            decimal = decimal // 2
+        # If the binary number is less than 8 bits long, add leading zeros
+        binary = binary.zfill(8)
+        converted_address += str(binary)
+    # Return the converted subnet
+    return converted_address
+
+def test():
+  CIDR_address = "110.40.240.16/22"
+  ip_address = CIDR_address.split('/')[0]
+  cidr = int(CIDR_address.split('/')[1])
+  host_bits = 32 - cidr
+  i = struct.unpack('>I', struct.pack('!4B', *[int(x) for x in ip_address.split('.')]))[0]
+  start = (i >> host_bits) << host_bits
+  end = start | ((1 << host_bits) - 1)
+  subnet_addresses = []
+  for i in range(start, end):
+      subnet_addresses.append('.'.join(str((i >> (8 * j)) & 255) for j in range(3, -1, -1)))
+  return subnet_addresses
 def main():
+  print(len(test()))
+  
+if __name__ == "__main__":
+    main()
+  
+  
 
-  ip_addres = "192.23.45.0"
 
-  subnet_mask = "255.240.0.0"
-  subnet_split = subnet_mask.split('.')
-  print(subnet_split)
-  converted_subnet = ""
-  for i in subnet_split:
-      binary = ""
-      decimal = int(i)
-      while decimal > 0:
-        binary = str(decimal % 2) + binary
-        decimal = decimal // 2
-      # If the binary number is less than 8 bits long, add leading zeros
-      binary = binary.zfill(8)
-      converted_subnet += str(binary)
-  consecutive_ones = 0
-  for i in converted_subnet:
-      if i == '1':
-          consecutive_ones += 1
-      else:
-          break 
-  print(consecutive_ones)
-  CIDR_address = subnet_mask + "/" + str(consecutive_ones)
-  print(CIDR_address)
+  
+
+
+
+  
+
+    
+
+  
+if __name__ == "__main__":
+  main()
+  
+
+
+  
 
 
 
