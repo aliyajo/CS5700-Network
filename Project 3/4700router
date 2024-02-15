@@ -364,6 +364,7 @@ class Router:
                     }
                     # send the update announcement
                     self.send(neighbor, json.dumps(data_msg))
+                    print(f"**DATA MESSAGE**: {data_msg}")
             
                 
                 
