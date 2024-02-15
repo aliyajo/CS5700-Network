@@ -107,19 +107,19 @@ class Router:
         msg_type = msg.get('type')
 
         if msg_type == 'update':
-            self.handle_update(msg, srcif)
+            self.handle_update(msg)
         elif msg_type == 'withdraw':
             self.handle_withdraw(msg)
             pass
         elif msg_type == 'data':
             pass
         elif msg_type == 'dump':
-            self.handle_dump(msg, srcif)
+            pass
         else:
             raise ValueError(f'Message type error: {msg_type}')
 
 
-    def handle_update(self, msg, srcif):
+    def handle_update(self, msg):
         '''
         This function handles the update message recieved from the neighboring
         routers & updates the forwarding table of the router. This updated route
@@ -130,8 +130,6 @@ class Router:
         '''
         # Save a copy of this revocation
         self.announcement_cache.append(msg)
-
-        print('Received update msg from %s .. **UPDATING TABLE**' % srcif)
         
         # extract msg portion of update announcement
         msg_data = msg['msg']
@@ -169,24 +167,24 @@ class Router:
                 'origin': origin,
                 'SelfOrigin': selfOrigin,
             }
-        
         # formated print for debugging
         print("**FORWARDING TABLE UPDATED**:\n" + json.dumps(self.forwarding_table, indent=4))
-        # print(f'**FORWARDING TABLE**: {self.forwarding_table}')
         
         # forward update announcement to all neighbors except source IP
         for connection in self.connections:
             port, neighbor, relation = connection.split("-")
             if neighbor != msg['src']:
-                
-                # create update route announcment to be sent out
+                # create update route announcment to send to non-source neighbors
+                # message format based on expected test case
                 update_msg = {
                     'msg': {
                         'netmask': msg_data['netmask'],
                         'ASPath': msg_data['ASPath'],
                         'network': network,
                     },
+                    # put our IP address as the source of the announcement to be sent
                     'src': self.our_addr(neighbor),
+                    # destination IP of the announcement, sending to our neighbor
                     'dst': neighbor,
                     'type': 'update'
                 }
@@ -233,27 +231,12 @@ class Router:
 
     # def handle_withdraw(self, msg):
     #     '''
-    #     Testing different withdraw logic!
+    #     To delete this function, but, maybe forwarding message snippit might
+    #     be useful ->
     #     '''
-    #     # debugging
-    #     print(f"Received withdraw msg .. **REMOVING ROUTE**")
-        
-    #     # iterate through received withdrawal data to pull network & netmask
-    #     for withdraw_data in msg['msg']:
-    #         network = withdraw_data['network']
-    #         netmask = withdraw_data['netmask']
-            
-    #         # construct complex key to make network/netmask combo unique
-    #         # since the withdraw msg we receive gives us the network and netmask
-    #         # so we remove only the entry that matches the network and netmask combo
-    #         table_key = f"{network}/{netmask}"
-            
-    #         if table_key in self.forwarding_table:
-    #             del self.forwarding_table[table_key]
-    #             print(f"**REMOVED NETWORK/NETMASK**: {table_key}")
-                
     #     # forward withdrawal announcement to all neighbors except to source of
     #     # the withdrawal announcement
+    #
     #     for connection in self.connections:
     #         port, neighbor, relation = connection.split("-")
     #         if neighbor != msg['src']:
@@ -279,42 +262,43 @@ class Router:
     
     
     def handle_dump(self, msg, srcif):
-        src = msg['src']
-        dst = msg['dst']
-        quads = list(int(qdn) for qdn in dst.split('.'))
+        pass
+        # src = msg['src']
+        # dst = msg['dst']
+        # quads = list(int(qdn) for qdn in dst.split('.'))
         
-        table_entries = []
+        # table_entries = []
         
-        # convert frwd table to list of dicts
-        for network, attributes in self.forwarding_table.items():
+        # # convert frwd table to list of dicts
+        # for network, attributes in self.forwarding_table.items():
             
-            # TODO: --------- fix logic here: cheesed ASPath by removing self.asn ---------
-            if attributes['ASPath'][0] == self.asn:
-                # delete self-asn
-                attributes['ASPath'].pop(0)   
+        #     # TODO: --------- fix logic here: cheesed ASPath by removing self.asn ---------
+        #     if attributes['ASPath'][0] == self.asn:
+        #         # delete self-asn
+        #         attributes['ASPath'].pop(0)   
             
-            table_entry = {
-                'origin': attributes['origin'],
-                'localpref': attributes['localpref'],
-                'network': network,
-                'ASPath': attributes['ASPath'],
-                'netmask': attributes['netmask'],
-                'peer': attributes['peer'],
-                'selfOrigin': attributes['selfOrigin']
-            }
-            table_entries.append(table_entry)
+        #     table_entry = {
+        #         'origin': attributes['origin'],
+        #         'localpref': attributes['localpref'],
+        #         'network': network,
+        #         'ASPath': attributes['ASPath'],
+        #         'netmask': attributes['netmask'],
+        #         'peer': attributes['peer'],
+        #         'selfOrigin': attributes['selfOrigin']
+        #     }
+        #     table_entries.append(table_entry)
         
-        # TODO: --------- check logic here: confirm src & dst ---------
-        # send table to source
-        table_msg = {
-            'src': self.our_addr(src),
-            'dst': src,
-            'type': 'table',
-            'msg': table_entries
-        }
-        self.send(src, json.dumps(table_msg))
-        print(f"**TABLE MESSAGE**: {table_msg}")
-        return
+        # # TODO: --------- check logic here: confirm src & dst ---------
+        # # send table to source
+        # table_msg = {
+        #     'src': self.our_addr(src),
+        #     'dst': src,
+        #     'type': 'table',
+        #     'msg': table_entries
+        # }
+        # self.send(src, json.dumps(table_msg))
+        # print(f"**TABLE MESSAGE**: {table_msg}")
+        # return
 
 
     def handle_no_route():
