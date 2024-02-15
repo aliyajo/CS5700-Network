@@ -122,6 +122,9 @@ class Router:
         '''
         This function is responsible for converting the given IP address
         into its corresponding binary notation.
+        Params:
+            @address: The IP address to be converted
+        Returns: The converted IP address in binary notation
         '''
         # Split the address into its quads
         subnet_split = address.split('.')
@@ -146,17 +149,23 @@ class Router:
         '''
         This function is responsible for converting given ip address, and subnet mask into
         their corresponding CIDR notation.
+        Params:
+            @subnet_mask: The subnet mask of the ip address
+            @ip_address: The network IP address
+        Returns: The formatted CIDR address
         '''
-        # ** Still Working On This Function **
         # Figure out subnet mask CIDR prefix
         converted_subnet = self.converting_to_binary(subnet_mask)
         consecutive_ones = 0
+        # Count the number of consecutive ones in the subnet mask
         for i in converted_subnet:
             if i == '1':
                 consecutive_ones += 1
             else:
                 break 
+        # Form the CIDR address
         CIDR_address = ip_address + "/" + str(consecutive_ones)
+        # Return the CIDR address
         return CIDR_address
         
 
@@ -178,6 +187,7 @@ class Router:
         dst = msg['dst'] # destination IP of announcement
         # store network attributes
         network = msg_data['network']
+        # convert network IP to CIDR notation
         network = self.converting_to_cidr(msg_data['netmask'], network)
         netmask = msg_data['netmask']
         localpref = msg_data['localpref']
