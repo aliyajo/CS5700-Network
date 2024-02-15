@@ -184,6 +184,7 @@ class Router:
         ASPath = msg_data['ASPath']
         origin = msg_data['origin']
         selfOrigin = msg_data['selfOrigin']
+        relation = self.relations[peer]
 
         # TODO: check if this is the correct logic? idk what ASPath is..
         # append router's ASN to front of ASPath
@@ -208,6 +209,7 @@ class Router:
                 'localpref': localpref,
                 'origin': origin,
                 'SelfOrigin': selfOrigin,
+                'relation': relation
             }
         # formated print for debugging
         print("**FORWARDING TABLE UPDATED**:\n" + json.dumps(self.forwarding_table, indent=4))
