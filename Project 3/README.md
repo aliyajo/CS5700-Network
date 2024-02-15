@@ -35,3 +35,4 @@ The following libraries are used in this project:
 
 
 ## Resources:
+> https://stackoverflow.com/questions/1942160/python-3-create-a-list-of-possible-ip-addresses-from-a-cidr-notation
