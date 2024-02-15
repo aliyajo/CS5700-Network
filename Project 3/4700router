@@ -26,7 +26,7 @@ class Router:
         '''
         print("Router at AS %s starting up" % asn)
         self.asn = asn
-        self.connections = connections
+        self.connections = connections 
         
         for relationship in connections:
             port, neighbor, relation = relationship.split("-")
@@ -114,7 +114,7 @@ class Router:
         elif msg_type == 'data':
             pass
         elif msg_type == 'dump':
-            pass
+            self.handle_dump(msg, srcif)
         else:
             raise ValueError(f'Message type error: {msg_type}')
 
@@ -306,10 +306,13 @@ class Router:
     
     
     def handle_dump(self, msg, srcif):
-        pass
+        # extract src and dst from dump message received
+        src = msg['src']
+        dst = msg['dst']
+        
+        # # extract src and dst from dump message received
         # src = msg['src']
         # dst = msg['dst']
-        # quads = list(int(qdn) for qdn in dst.split('.'))
         
         # table_entries = []
         
@@ -332,8 +335,7 @@ class Router:
         #     }
         #     table_entries.append(table_entry)
         
-        # # TODO: --------- check logic here: confirm src & dst ---------
-        # # send table to source
+        # # create table message to send to source of dump request
         # table_msg = {
         #     'src': self.our_addr(src),
         #     'dst': src,
