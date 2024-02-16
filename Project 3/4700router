@@ -339,43 +339,33 @@ class Router:
                     
 
     def handle_data(self, msg):
-        # extract dst from data message received
+        # Extract destination IP from data message received
         dst = msg['dst']
-        data_msg = msg['msg']
-        
-        for i in self.forwarding_table:
-            if dst in self.figure_out_range(i):
-                print(f"******* TEST ******{dst}")
-            
-            
-            # forward update announcement to all neighbors except source IP
-            for connection in self.connections:
-                port, neighbor, relation = connection.split("-")
-                if neighbor != msg['src']:
-                    # create update route announcment to send to non-source neighbors
-                    # message format based on expected test case
+        src = msg['src']
+        # Loop through forwarding table entries to find the best route
+        for entry in self.forwarding_table:
+            # Check if the destination IP falls within the range of this entry
+            if dst in self.figure_out_range(entry):
+                for ip_address in self.forwarding_table[entry]:
+                    # Forward the data message to all neighbors except the source
+                    # Create update route announcement to send to non-source neighbors
+                    # Use the neighbor's IP as the source of the announcement
                     data_msg = {
-                        # put our IP address as the source of the announcement to be sent
-                        'src': self.our_addr(neighbor),
-                        # destination IP of the announcement, sending to our neighbor
-                        'dst': neighbor,
+                        'src': src,
+                        'dst': dst,
                         'type': 'data',
-                        'msg': data_msg
+                        'msg': msg['msg']  # Forward the original message content
                     }
-                    # send the update announcement
-                    self.send(neighbor, json.dumps(data_msg))
+                    # Send the update announcement
+                    self.send(ip_address, json.dumps(data_msg))
                     print(f"**DATA MESSAGE**: {data_msg}")
-            
-                
-                
-                
-                return
-            
-            
+        # Exit the function once the message is forwarded
+        return
         
-        
-        
-    
+        # If no matching entry is found in the forwarding table, drop the message
+        print(f"No route found for destination {dst}. Dropping message.")
+
+            
     
     def handle_dump(self, msg, srcif):
         # extract src and dst from dump message received

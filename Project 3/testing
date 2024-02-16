@@ -61,9 +61,8 @@ def main():
 
   dst = "192.278.1.0"
     
-  for i in msg:
-    if i == dst:
-      
+  
+
 
 if __name__ == "__main__":
   main()
