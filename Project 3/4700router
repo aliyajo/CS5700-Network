@@ -1,6 +1,7 @@
 #!/usr/bin/env -S python3 -u
 
 import argparse, socket, time, json, select, struct, sys, math
+import copy
 
 class Router:
 
@@ -110,9 +111,8 @@ class Router:
             self.handle_update(msg)
         elif msg_type == 'withdraw':
             self.handle_withdraw(msg)
-            pass
         elif msg_type == 'data':
-            self.handle_data(msg)
+            # self.handle_data(msg)
             pass
         elif msg_type == 'dump':
             # self.handle_dump(msg)
@@ -280,7 +280,7 @@ class Router:
                                 }
                                 # send the update announcement
                                 self.send(source, json.dumps(update_msg))
-                # If the update is recieved by customer
+                # If the update is recieved from a customer
                 elif relation == "cust":
                     update_msg = {
                     'msg': {
@@ -296,8 +296,6 @@ class Router:
                 }
                     # send the update announcement
                     self.send(neighbor, json.dumps(update_msg))
-                    
-                    
         return
 
 
@@ -310,7 +308,7 @@ class Router:
             2. Remove the dead entry from the forwarding table
             3. The copy that was saved, send this to other neighboring routes
         Params:
-            @msg:
+            @msg: The withdrawal message recieved 
         '''
         # Save a copy of this revocation
         self.announcement_cache.append(msg)
@@ -319,23 +317,62 @@ class Router:
         # From the withdrawal message, extract the network and netmask
         network_removal, netmask_removal = [(i['network'], i['netmask']) for i in msg['msg']][0]
         # Iterate through the forwarding table
-        for i in self.forwarding_table:
+        for entry in self.forwarding_table:
+            ip_address = entry.split('/')[0]
             # If the network is in the forwarding table
-            if i == network_removal:
+            if ip_address == network_removal:
                 # Iterate through the paths of the forwarding table
-                for j in self.forwarding_table[i]:
+                for j in self.forwarding_table[entry]:
                     # If the path is the same as the source of the withdrawal message
                     if j == src:
                         # If the netmask is the same as the netmask of the withdrawal message
-                        if self.forwarding_table[i][j]['netmask'] == netmask_removal:
+                        if self.forwarding_table[entry][j]['netmask'] == netmask_removal:
                             # Remove the path from the forwarding table
-                            del self.forwarding_table[i][j]
+                            print(f"**WITHDRAWAL**: {self.forwarding_table[entry][j]}")
+                            del self.forwarding_table[entry][j]
                             break
         
         # Sending copies to other neighbors
-        # TODO: Implement this
-        
-        
+        for connection in self.connections:
+            _, neighbor, relation = connection.split("-")
+            if neighbor != msg['src']:
+                # If the announcement is recieved by peer or provider
+                if relation == "peer" or relation == "prov":
+                    # Iterate through the first layer keys of the forwarding table
+                    for entry in self.forwarding_table:
+                         # Loop through the src ip addresses of the entry
+                        for source in self.forwarding_table[entry]:
+                            # Then only send a updates to our customers
+                            if self.forwarding_table[entry][source]['relation'] == "cust": 
+                                # Send withdrawal message
+                                withdraw_msg = {
+                                    'msg': msg['msg'],
+                                    # Put our IP address as the source of the announcement to be sent
+                                    'src': self.our_addr(neighbor),
+                                    # destination IP of the announcement, sending to our neighbor
+                                    'dst': neighbor,
+                                    'type': 'withdraw'
+                                }
+                                # Print statements for debugging purposes
+                                print(f"**SENDING WITHDRAWAL MESSAGE**: {withdraw_msg}")
+                                print("**FORWARDING TABLE UPDATED AFTER WITHDRAWAL**:\n" + json.dumps(self.forwarding_table, indent=4))
+                                # send the withdrawal announcement
+                                self.send(neighbor, json.dumps(withdraw_msg))
+                # If the update is recieved from a customer
+                elif relation == "cust":
+                    withdraw_msg = {
+                        'msg': msg['msg'],
+                        # Put our IP address as the source of the announcement to be sent
+                        'src': self.our_addr(neighbor),
+                        # Destination IP of the announcement, sending to our neighbor
+                        'dst': neighbor,
+                        'type': 'withdraw'
+                    }
+                    # Print statements for debugging purposes 
+                    print(f"**SENDING WITHDRAWAL MESSAGE**: {withdraw_msg}")
+                    print("**FORWARDING TABLE UPDATED AFTER WITHDRAWAL**:\n" + json.dumps(self.forwarding_table, indent=4))
+                    # send the withdrawal announcement
+                    self.send(neighbor, json.dumps(withdraw_msg))
         return
                     
 
