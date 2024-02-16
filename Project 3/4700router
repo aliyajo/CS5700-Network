@@ -346,10 +346,9 @@ class Router:
         for entry in self.forwarding_table:
             # Check if the destination IP falls within the range of this entry
             if dst in self.figure_out_range(entry):
+                # Loop through the src ip addresses of the entry
                 for ip_address in self.forwarding_table[entry]:
-                    # Forward the data message to all neighbors except the source
-                    # Create update route announcement to send to non-source neighbors
-                    # Use the neighbor's IP as the source of the announcement
+                    # Establishing the data message to be sent
                     data_msg = {
                         'src': src,
                         'dst': dst,
@@ -361,10 +360,7 @@ class Router:
                     print(f"**DATA MESSAGE**: {data_msg}")
         # Exit the function once the message is forwarded
         return
-        
-        # If no matching entry is found in the forwarding table, drop the message
-        print(f"No route found for destination {dst}. Dropping message.")
-
+    
             
     
     def handle_dump(self, msg, srcif):
