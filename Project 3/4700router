@@ -110,13 +110,11 @@ class Router:
             self.handle_update(msg)
         elif msg_type == 'withdraw':
             self.handle_withdraw(msg)
-            pass
         elif msg_type == 'data':
             self.handle_data(msg)
             pass
         elif msg_type == 'dump':
-            # self.handle_dump(msg)
-            pass
+            self.handle_dump(msg)
         else:
             raise ValueError(f'Message type error: {msg_type}')
 
@@ -248,7 +246,8 @@ class Router:
                 'localpref': localpref,
                 'origin': origin,
                 'SelfOrigin': selfOrigin,
-                'relation': relation
+                'relation': relation,
+                'network_ip': network_ip
             }
         # formated print for debugging
         print("**FORWARDING TABLE UPDATED**:\n" + json.dumps(self.forwarding_table, indent=4))
@@ -362,64 +361,46 @@ class Router:
         # Exit the function once the message is forwarded
         return
     
-            
-    
+
     def handle_dump(self, msg):
-        # extract src and dst from dump message received
-        src = msg['src']
-        dst = msg['dst']
-        msg_data = msg['msg']
-        
-        # forward update announcement to all neighbors except source IP
-        for connection in self.connections:
-            port, neighbor, relation = connection.split("-")
-            if neighbor != msg['src']:
-                if relation == "peer" or relation == "prov":
-                    for entry in self.forwarding_table:
-                        for source in self.forwarding_table[entry]:
-                            if self.forwarding_table[entry][source]['relation'] == "cust": 
-                                # create update route announcment to send to non-source neighbors
-                                # message format based on expected test case
-                                update_msg = {
-                                    'msg': {
-                                        msg_data
-                                    },
-                                    # put our IP address as the source of the announcement to be sent
-                                    'src': self.our_addr(neighbor),
-                                    # destination IP of the announcement, sending to our neighbor
-                                    'dst': neighbor,
-                                    'type': 'update'
-                                }
-                                # send the update announcement
-                                self.send(neighbor, json.dumps(update_msg))
-                        
-        
-        
-        # # extract src and dst from dump message received
-        # src = msg['src']
-        # dst = msg['dst']
-        
-        # table_entries = []
-        
-        # # convert frwd table to list of dicts
-        # for network, attributes in self.forwarding_table.items():
-            
-        #     # TODO: --------- fix logic here: cheesed ASPath by removing self.asn ---------
-        #     if attributes['ASPath'][0] == self.asn:
-        #         # delete self-asn
-        #         attributes['ASPath'].pop(0)   
-            
-        #     table_entry = {
-        #         'origin': attributes['origin'],
-        #         'localpref': attributes['localpref'],
-        #         'network': network,
-        #         'ASPath': attributes['ASPath'],
-        #         'netmask': attributes['netmask'],
-        #         'peer': attributes['peer'],
-        #         'selfOrigin': attributes['selfOrigin']
-        #     }
-        #     table_entries.append(table_entry)
-        
+        src = msg['src']  # Source of the dump request
+
+        # Prepare a list to hold all the route entries
+        table_entries = []
+
+        # Iterate over each network in the forwarding table
+        for network_cidr, peers in self.forwarding_table.items():
+            for peer, details in peers.items():
+                # make a copy of the ASPath to avoid modifying the original
+                copy_aspath = details['ASPath'][:]
+                # if the router's ASN is in the ASPath, remove it
+                if copy_aspath and copy_aspath[0] == self.asn:
+                    copy_aspath.pop(0)
+                
+                # For each peer, create an entry for the routing table
+                entry = {
+                    'network': network_cidr.split('/')[0],  # Extracting the network IP
+                    'netmask': details['netmask'],  # Netmask of the network
+                    'origin': details['origin'], 
+                    'localpref': details['localpref'],
+                    'ASPath': copy_aspath,  # ASPath of the route, popped the first element(our ASN)
+                    'peer': peer,  # Peer from which the route was learned
+                    'selfOrigin': details['SelfOrigin'],  # Whether the route was originated by this router
+                }
+                table_entries.append(entry)
+
+        # Create the dump message to send back
+        dump_msg = {
+            'src': self.our_addr(src),  # Using the router's address towards the source of the request
+            'dst': src,  # Destination is the source of the dump request
+            'type': 'table',  # Indicating this is a table dump response
+            'msg': table_entries  # The routing table entries
+        }
+
+        # Send the routing table dump back to the requester
+        self.send(src, json.dumps(dump_msg))
+        print(f"**DUMP MESSAGE SENT**: {json.dumps(dump_msg, indent=4)}")
+        return
 
 
     def handle_no_route():
