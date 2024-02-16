@@ -113,8 +113,10 @@ class Router:
             pass
         elif msg_type == 'data':
             self.handle_data(msg)
+            pass
         elif msg_type == 'dump':
-            self.handle_dump(msg, srcif)
+            self.handle_dump(msg)
+            pass
         else:
             raise ValueError(f'Message type error: {msg_type}')
 
@@ -255,22 +257,47 @@ class Router:
         for connection in self.connections:
             port, neighbor, relation = connection.split("-")
             if neighbor != msg['src']:
-                # create update route announcment to send to non-source neighbors
-                # message format based on expected test case
-                update_msg = {
-                    'msg': {
-                        'netmask': msg_data['netmask'],
-                        'ASPath': msg_data['ASPath'],
-                        'network': network_ip,
-                    },
-                    # put our IP address as the source of the announcement to be sent
-                    'src': self.our_addr(neighbor),
-                    # destination IP of the announcement, sending to our neighbor
-                    'dst': neighbor,
-                    'type': 'update'
-                }
-                # send the update announcement
-                self.send(neighbor, json.dumps(update_msg))
+                # If the update is recieved by peer or provider
+                if relation == "peer" or relation == "prov":
+                    for entry in self.forwarding_table:
+                        for source in self.forwarding_table[entry]:
+                            ip_address = source.split()
+                            # Then only send a updates to our customers
+                            if self.forwarding_table[entry][source]['relation'] == "cust": 
+                                # create update route announcment to send to non-source neighbors
+                                # message format based on expected test case
+                                update_msg = {
+                                    'msg': {
+                                        'netmask': msg_data['netmask'],
+                                        'ASPath': msg_data['ASPath'],
+                                        'network': network_ip,
+                                    },
+                                    # put our IP address as the source of the announcement to be sent
+                                    'src': self.our_addr(neighbor),
+                                    # destination IP of the announcement, sending to our neighbor
+                                    'dst': neighbor,
+                                    'type': 'update'
+                                }
+                                # send the update announcement
+                                self.send(, json.dumps(update_msg))
+                # If the update is recieved by customer
+                elif relation == "cust":
+                    update_msg = {
+                                    'msg': {
+                                        'netmask': msg_data['netmask'],
+                                        'ASPath': msg_data['ASPath'],
+                                        'network': network_ip,
+                                    },
+                                    # put our IP address as the source of the announcement to be sent
+                                    'src': self.our_addr(neighbor),
+                                    # destination IP of the announcement, sending to our neighbor
+                                    'dst': neighbor,
+                                    'type': 'update'
+                                }
+                                # send the update announcement
+                                self.send(neighbor, json.dumps(update_msg))
+                    
+          
         return
 
 
@@ -307,35 +334,9 @@ class Router:
         
         # Sending copies to other neighbors
         # TODO: Implement this
-
+        
+        
         return
-
-    # def handle_withdraw(self, msg):
-    #     '''
-    #     To delete this function, but, maybe forwarding message snippit might
-    #     be useful ->
-    #     '''
-    #     # forward withdrawal announcement to all neighbors except to source of
-    #     # the withdrawal announcement
-    #
-    #     for connection in self.connections:
-    #         port, neighbor, relation = connection.split("-")
-    #         if neighbor != msg['src']:
-                
-    #             # create the withdraw route announcment for our router to send
-    #             # out to all neighbors
-    #             withdraw_msg = {
-    #                 'msg': [{
-    #                     'netmask': withdraw_data['netmask'],
-    #                     'network': withdraw_data['network']
-    #                 }],
-    #                 'src': self.our_addr(neighbor),
-    #                 'dst': neighbor,
-    #                 'type': 'withdraw'
-    #             }
-    #             # send the withdraw announcement
-    #             self.send(neighbor, json.dumps(withdraw_msg))
-    #     return
                     
 
     def handle_data(self, msg):
@@ -363,10 +364,36 @@ class Router:
     
             
     
-    def handle_dump(self, msg, srcif):
+    def handle_dump(self, msg):
         # extract src and dst from dump message received
         src = msg['src']
         dst = msg['dst']
+        msg_data = msg['msg']
+        
+        # forward update announcement to all neighbors except source IP
+        for connection in self.connections:
+            port, neighbor, relation = connection.split("-")
+            if neighbor != msg['src']:
+                if relation == "peer" or relation == "prov":
+                    for entry in self.forwarding_table:
+                        for source in self.forwarding_table[entry]:
+                            if self.forwarding_table[entry][source]['relation'] == "cust": 
+                                # create update route announcment to send to non-source neighbors
+                                # message format based on expected test case
+                                update_msg = {
+                                    'msg': {
+                                        msg_data
+                                    },
+                                    # put our IP address as the source of the announcement to be sent
+                                    'src': self.our_addr(neighbor),
+                                    # destination IP of the announcement, sending to our neighbor
+                                    'dst': neighbor,
+                                    'type': 'update'
+                                }
+                                # send the update announcement
+                                self.send(neighbor, json.dumps(update_msg))
+                        
+        
         
         # # extract src and dst from dump message received
         # src = msg['src']
@@ -393,16 +420,6 @@ class Router:
         #     }
         #     table_entries.append(table_entry)
         
-        # # create table message to send to source of dump request
-        # table_msg = {
-        #     'src': self.our_addr(src),
-        #     'dst': src,
-        #     'type': 'table',
-        #     'msg': table_entries
-        # }
-        # self.send(src, json.dumps(table_msg))
-        # print(f"**TABLE MESSAGE**: {table_msg}")
-        # return
 
 
     def handle_no_route():
