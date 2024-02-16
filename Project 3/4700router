@@ -115,7 +115,7 @@ class Router:
             self.handle_data(msg)
             pass
         elif msg_type == 'dump':
-            self.handle_dump(msg)
+            # self.handle_dump(msg)
             pass
         else:
             raise ValueError(f'Message type error: {msg_type}')
@@ -255,13 +255,13 @@ class Router:
         
         # forward update announcement to all neighbors except source IP
         for connection in self.connections:
-            port, neighbor, relation = connection.split("-")
+            _, neighbor, relation = connection.split("-")
             if neighbor != msg['src']:
                 # If the update is recieved by peer or provider
                 if relation == "peer" or relation == "prov":
                     for entry in self.forwarding_table:
+                         # Loop through the src ip addresses of the entry
                         for source in self.forwarding_table[entry]:
-                            ip_address = source.split()
                             # Then only send a updates to our customers
                             if self.forwarding_table[entry][source]['relation'] == "cust": 
                                 # create update route announcment to send to non-source neighbors
@@ -279,25 +279,25 @@ class Router:
                                     'type': 'update'
                                 }
                                 # send the update announcement
-                                self.send(, json.dumps(update_msg))
+                                self.send(source, json.dumps(update_msg))
                 # If the update is recieved by customer
                 elif relation == "cust":
                     update_msg = {
-                                    'msg': {
-                                        'netmask': msg_data['netmask'],
-                                        'ASPath': msg_data['ASPath'],
-                                        'network': network_ip,
-                                    },
-                                    # put our IP address as the source of the announcement to be sent
-                                    'src': self.our_addr(neighbor),
-                                    # destination IP of the announcement, sending to our neighbor
-                                    'dst': neighbor,
-                                    'type': 'update'
-                                }
-                                # send the update announcement
-                                self.send(neighbor, json.dumps(update_msg))
+                    'msg': {
+                        'netmask': msg_data['netmask'],
+                        'ASPath': msg_data['ASPath'],
+                        'network': network_ip,
+                    },
+                    # ./rput our IP address as the source of the announcement to be sent
+                    'src': self.our_addr(neighbor),
+                    # destination IP of the announcement, sending to our neighbor
+                    'dst': neighbor,
+                    'type': 'update'
+                }
+                    # send the update announcement
+                    self.send(neighbor, json.dumps(update_msg))
                     
-          
+                    
         return
 
 
