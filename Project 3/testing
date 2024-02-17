@@ -1,9 +1,35 @@
 #!/usr/bin/env -S python3 -u
 
-
+import struct 
 '''
 This is just a testing file I am using to help with parsing
 '''
+def figure_out_range(CIDR_address):
+    '''
+    This function is responsible for figuring out the range of IP addresses.
+    Params:
+        @CIDR_address: The CIDR address
+    Returns: A list containing the range of IP addresses
+    '''
+    # Isolate the ip address from the CIDR notation
+    ip_address = CIDR_address.split('/')[0]
+    # Isolate the CIDR from the CIDR notation
+    cidr = int(CIDR_address.split('/')[1])
+    # Figure out the number of host bits
+    host_bits = 32 - cidr
+    # Able to convert the ip address into a 32-bit unsigned integer
+    i = struct.unpack('>I', struct.pack('!4B', *[int(x) for x in ip_address.split('.')]))[0]
+    # Figure out the start of the range
+    start = (i >> host_bits) << host_bits
+    # Figure out the end of the range
+    end = start | ((1 << host_bits) - 1)
+    subnet_addresses = []
+    # Iterate through the range of IP addresses
+    for i in range(start, end):
+        subnet_addresses.append('.'.join(str((i >> (8 * j)) & 255) for j in range(3, -1, -1)))
+    # Return the range of IP addresses
+    return subnet_addresses
+
 def main():
   msg = {
     "192.168.1.0": {
@@ -58,9 +84,17 @@ def main():
       } 
     }
   }
+  entry1 = "10.0.5.0/24"
+  entry2 = "10.0.4.0/24"
+  range1 = figure_out_range(entry1)
+  range2 = figure_out_range(entry2)
+  overlapping = False
 
-  dst = "192.278.1.0"
-    
+  
+
+  print(overlapping)
+  
+
   
 
 

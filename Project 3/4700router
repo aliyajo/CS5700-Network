@@ -194,6 +194,62 @@ class Router:
         # Return the range of IP addresses
         return subnet_addresses
 
+    def aggregation(self, entry1, entry2):
+        '''
+        This function handles the process of aggregating the given data. 
+        It does this by looking at the following conditions:
+        (1) Adjacent numerically
+        (2) Forward to the same next-hop router
+        (3) Have the same attributes then the two entries can be aggregated into
+        a single entry
+        '''
+        # Looking if they are adjacent numerically
+        adjacent_numerically = False
+        # Iterating through the CIDR key in forwarding table
+        range1 = self.figure_out_range(self.forwarding_table[entry1])
+        range2 = self.figure_out_range(self.forwarding_table[entry2])
+        # If the range of the first entry is adjacent to the range of the second
+        # entry
+        # Check if the range of the first entry overlaps with the range of the second entry
+        if range1[-1] >= range2[0] and range1[0] <= range2[-1]:
+            adjacent_numerically = True
+        
+                    # Compare entry1 and entry2 here
+                    # Perform your comparison logic
+                    # You can access the attributes of each entry using self.forwarding_table[entry1] and self.forwarding_table[entry2]
+                    # Example: if self.forwarding_table[entry1]['next_hop'] == self.forwarding_table[entry2]['next_hop']:
+                    #            # Perform your logic here
+                    #            pass
+                    return 
+            
+            
+         
+        
+        
+        # Looking if they have the same attributes
+        same_attributes = False
+        
+        
+        for network, src in self.forwarding_table.items():
+            print(f"NETWORK: {network}")
+            for src_ip, attributes in src.items():
+                print(f"SRC_IP: {src_ip}")
+                
+                
+                
+            
+
+
+        # Checkind to see if they have the same next-hop router
+        same_next_hop = False
+        
+        # Checking to see if all of the conditions are true
+        if same_attributes and adjacent_numerically and same_next_hop == True:
+            return True
+        else:
+            return False
+
+
     def handle_update(self, msg):
         '''
         This function handles the update message recieved from the neighboring
@@ -251,7 +307,13 @@ class Router:
             }
         # formated print for debugging
         print("**FORWARDING TABLE UPDATED**:\n" + json.dumps(self.forwarding_table, indent=4))
-        
+
+        # TODO: implement aggregation
+        # for entry1 in self.forwarding_table:
+        #     for entry2
+        #         if aggregate(entry1, entry2) == true:
+        #             merge(entry1, entry2)
+     
         # forward update announcement to all neighbors except source IP
         for connection in self.connections:
             _, neighbor, relation = connection.split("-")
