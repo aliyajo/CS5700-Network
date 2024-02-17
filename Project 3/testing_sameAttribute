@@ -1,0 +1,180 @@
+#!/usr/bin/env -S python3 -u
+
+import argparse, socket, time, json, select, struct, sys, math
+
+# ------------------------- CAN BE AGGREGATED -------------------------
+forwarding_table = {
+    "192.168.1.0/24": {
+        "192.168.0.2": {
+            "netmask": "255.255.255.0",
+            "dst": "192.168.0.1",
+            "ASPath": [16, 1],
+            "localpref": 100,
+            "origin": "EGP",
+            "SelfOrigin": True,
+            "relation": "cust",
+            "network_ip": "192.168.1.0"
+        }
+    },
+    "172.169.0.0/16": {
+        "172.168.0.2": {
+            "netmask": "255.255.0.0",
+            "dst": "172.168.0.1",
+            "ASPath": [16, 2],
+            "localpref": 100,
+            "origin": "EGP",
+            "SelfOrigin": True,
+            "relation": "cust",
+            "network_ip": "172.169.0.0"
+        },
+        "10.0.0.2": {
+            "netmask": "255.255.0.0",
+            "dst": "172.168.0.1",
+            "ASPath": [16, 2],
+            "localpref": 100,
+            "origin": "EGP",
+            "SelfOrigin": True,
+            "relation": "cust",
+            "network_ip": "172.169.0.0"
+        },
+        "190.0.0.2": {
+            "netmask": "255.255.0.0",
+            "dst": "172.168.0.1",
+            "ASPath": [16, 2],
+            "localpref": 100,
+            "origin": "EGP",
+            "SelfOrigin": True,
+            "relation": "cust",
+            "network_ip": "172.169.0.0"
+        }
+    },
+    "11.0.0.0/8": {
+        "10.0.0.2": {
+            "netmask": "255.0.0.0",
+            "dst": "10.0.0.1",
+            "ASPath": [16, 3],
+            "localpref": 100,
+            "origin": "EGP",
+            "SelfOrigin": True,
+            "relation": "cust",
+            "network_ip": "11.0.0.0"
+        }
+    }
+}
+
+# ------------------------- CAN'T BE AGGREGATED -------------------------
+forwarding_table2 = {
+    "192.168.1.0/24": {
+        "192.168.0.2": {
+            "netmask": "255.255.255.0",
+            "dst": "192.168.0.1",
+            "ASPath": [16, 1],
+            "localpref": 100,
+            "origin": "EGP",
+            "SelfOrigin": True,
+            "relation": "cust",
+            "network_ip": "192.168.1.0"
+        }
+    },
+    "172.169.0.0/16": {
+        "172.168.0.2": {
+            "netmask": "255.255.0.0",
+            "dst": "172.168.0.1",
+            "ASPath": [16, 2],
+            "localpref": 100,
+            "origin": "EGP",
+            "SelfOrigin": False,
+            "relation": "cust",
+            "network_ip": "172.169.0.0"
+        },
+        "10.0.0.2": {
+            "netmask": "255.255.0.0",
+            "dst": "172.168.0.1",
+            "ASPath": [16, 2],
+            "localpref": 100,
+            "origin": "EGP",
+            "SelfOrigin": True,
+            "relation": "cust",
+            "network_ip": "172.169.0.0"
+        }
+    },
+    "11.0.0.0/8": {
+        "10.0.0.2": {
+            "netmask": "255.0.0.0",
+            "dst": "10.0.0.1",
+            "ASPath": [16, 3],
+            "localpref": 100,
+            "origin": "EGP",
+            "SelfOrigin": True,
+            "relation": "cust",
+            "network_ip": "11.0.0.0"
+        }
+    }
+}
+
+
+def same_attributes(forwarding_table):
+    """
+    Test function to check if src_ip's attributes are the same within the same network
+    CIDR. If they are, the src_ip's entires can be aggregated into one entry,
+    return True.
+    """
+    
+    # if (1) adjacent numerically == True
+    # if (2) forward to the same next-hop router == True
+    # TODO: if (3) have the same attributes == True
+    
+    # initialize bool to see if aggregation is possible
+    can_aggregate = False
+    # track the network_cidr that contains src_ip's with the same attributes
+    network_cidr_containing_same_attributes = set()
+
+    # iterate through each network CIDR in forwarding table
+    for network_cidr, src_data in forwarding_table.items():
+        print(f"Network CIDR: {network_cidr}")
+        print(f"Source Data: {src_data}\n")
+
+        # create list of source IPs within the network CIDR
+        src_ip = list(src_data.keys())
+        # iterate through each src ip to compare their attributes
+        for i in range(len(src_ip)):
+            for j in range(i + 1, len(src_ip)):
+                src_ip1 = src_ip[i]
+                src_ip2 = src_ip[j]
+                print(f"COMPARING {src_ip1} and {src_ip2}")
+
+                # check if certain attributes are the same for both source IPs
+                # check for localpref, selfOrigin, ASPath, and origin
+                # TODO: ASSUMING THESE ARE THE ONLY ATTRIBUTES THAT MATTER
+                if src_data[src_ip1]["localpref"] == src_data[src_ip2]["localpref"] and \
+                src_data[src_ip1]["SelfOrigin"] == src_data[src_ip2]["SelfOrigin"] and \
+                src_data[src_ip1]["ASPath"] == src_data[src_ip2]["ASPath"] and \
+                src_data[src_ip1]["origin"] == src_data[src_ip2]["origin"]:
+                    
+                    # mark true if aggregation is possible
+                    can_aggregate = True  
+                    # track network_cidr that contains src_ip's with the same attributes
+                    network_cidr_containing_same_attributes.add(network_cidr)
+                    print(f"{src_ip1} & {src_ip2} CAN BE aggregated based on identical attributes. \n")
+
+
+                else:
+                    # remains false if aggregation is not possible
+                    print(f"{src_ip1} & {src_ip2} **CANNOT** be aggregated based on identical attributes. \n")
+
+    print(f"Network CIDRs containing same attributes: {network_cidr_containing_same_attributes}\n")
+    return can_aggregate, network_cidr_containing_same_attributes
+
+def main():
+    print(f"Forwarding table: {json.dumps(forwarding_table, indent=4)}\n")
+    
+    # test for TRUE
+    aggregation = same_attributes(forwarding_table)
+    
+    # test for FALSE
+    # aggregation = same_attributes(forwarding_table2)
+    
+    print(f"Aggregation possible: {aggregation}")
+
+if __name__ == "__main__":
+    main()

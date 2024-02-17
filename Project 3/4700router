@@ -214,30 +214,9 @@ class Router:
         if range1[-1] >= range2[0] and range1[0] <= range2[-1]:
             adjacent_numerically = True
         
-                    # Compare entry1 and entry2 here
-                    # Perform your comparison logic
-                    # You can access the attributes of each entry using self.forwarding_table[entry1] and self.forwarding_table[entry2]
-                    # Example: if self.forwarding_table[entry1]['next_hop'] == self.forwarding_table[entry2]['next_hop']:
-                    #            # Perform your logic here
-                    #            pass
-                    return 
-            
-            
-         
-        
-        
-        # Looking if they have the same attributes
-        same_attributes = False
-        
-        
-        for network, src in self.forwarding_table.items():
-            print(f"NETWORK: {network}")
-            for src_ip, attributes in src.items():
-                print(f"SRC_IP: {src_ip}")
-                
-                
-                
-            
+        # returns True if any entries within a Network CIDR have the same attributes
+        # also returns the specific network CIDRs that contain src_ip's with the same attributes
+        same_attributes, _ = self.same_attributes(self.forwarding_table)
 
 
         # Checkind to see if they have the same next-hop router
@@ -248,6 +227,57 @@ class Router:
             return True
         else:
             return False
+
+
+    def same_attributes(forwarding_table):
+        """
+        Test function to check if src_ip's attributes are the same within the same network
+        CIDR. If they are, the src_ip's entires can be aggregated into one entry,
+        return True. {See the testing_sameAttribute for testing!}
+        """
+
+        # TODO: if (3) have the same attributes == True
+        
+        # initialize bool to see if aggregation is possible
+        can_aggregate = False
+        # track the network_cidr that contains src_ip's with the same attributes
+        # might be useful later, when we need to aggregate specific network CIDRs
+        network_cidr_containing_same_attributes = set()
+
+        # iterate through each network CIDR in forwarding table
+        for network_cidr, src_data in forwarding_table.items():
+            print(f"Network CIDR: {network_cidr}")
+            print(f"Source Data: {src_data}\n")
+
+            # create list of source IPs within the network CIDR
+            src_ip = list(src_data.keys())
+            # iterate through each src ip to compare their attributes
+            for i in range(len(src_ip)):
+                for j in range(i + 1, len(src_ip)):
+                    src_ip1 = src_ip[i]
+                    src_ip2 = src_ip[j]
+                    print(f"COMPARING {src_ip1} and {src_ip2}")
+
+                    # check if certain attributes are the same for both source IPs
+                    # check for localpref, selfOrigin, ASPath, and origin
+                    # TODO: ASSUMING THESE ARE THE ONLY ATTRIBUTES THAT MATTER
+                    if src_data[src_ip1]["localpref"] == src_data[src_ip2]["localpref"] and \
+                    src_data[src_ip1]["SelfOrigin"] == src_data[src_ip2]["SelfOrigin"] and \
+                    src_data[src_ip1]["ASPath"] == src_data[src_ip2]["ASPath"] and \
+                    src_data[src_ip1]["origin"] == src_data[src_ip2]["origin"]:
+                        
+                        # mark true if aggregation is possible
+                        can_aggregate = True  
+                        # track network_cidr that contains src_ip's with the same attributes
+                        network_cidr_containing_same_attributes.add(network_cidr)
+                        print(f"{src_ip1} & {src_ip2} CAN BE aggregated based on identical attributes. \n")
+
+                    else:
+                        # remains false if aggregation is not possible
+                        print(f"{src_ip1} & {src_ip2} **CANNOT** be aggregated based on identical attributes. \n")
+
+        print(f"Network CIDRs containing same attributes: {network_cidr_containing_same_attributes}\n")
+        return can_aggregate, network_cidr_containing_same_attributes
 
 
     def handle_update(self, msg):
@@ -310,9 +340,12 @@ class Router:
 
         # TODO: implement aggregation
         # for entry1 in self.forwarding_table:
-        #     for entry2
-        #         if aggregate(entry1, entry2) == true:
-        #             merge(entry1, entry2)
+        #     for entry2 in self.forwarding_table:
+        #         if entry1 != entry2:
+        #             # aggregate the entries
+        #             if self.aggregation(entry1, entry2):
+        #                 print(f"**AGGREGATION**: {entry1} & {entry2}")
+
      
         # forward update announcement to all neighbors except source IP
         for connection in self.connections:

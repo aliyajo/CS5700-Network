@@ -84,17 +84,12 @@ def main():
       } 
     }
   }
+
   entry1 = "10.0.5.0/24"
   entry2 = "10.0.4.0/24"
   range1 = figure_out_range(entry1)
   range2 = figure_out_range(entry2)
-  overlapping = False
-
-  
-
-  print(overlapping)
-  
-
+  print(bool(set(range1).intersection(range2)))
   
 
 
