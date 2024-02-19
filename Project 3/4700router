@@ -321,17 +321,14 @@ class Router:
         if self.asn not in ASPath:
             ASPath.insert(0, self.asn)
                  
+        # Iterating through the already existing entries in the forwarding table
         for network, sources in self.forwarding_table.items():
             # This conditional checks if there are same hops
             if peer in sources:
                 # If there are same hops, then we can see if can aggregate
                 if network_cidr != network:
                     matching_in_table = network
-                    # If the two entries can be aggregated  
-                    range1 = self.figure_out_range(network_cidr)
-                    range2 = self.figure_out_range(matching_in_table)
-                    if self.are_cidr_addresses_adjacent(range1, range2) \
-                    and self.has_same_attributes(localpref, ASPath, origin, selfOrigin, matching_in_table):
+                    if self.has_same_attributes(localpref, ASPath, origin, selfOrigin, matching_in_table) and self.are_cidr_addresses_adjacent(self.figure_out_range(network_cidr), self.figure_out_range(matching_in_table)) == True:
                         # TODO: Figure out how to combine the two entries into one entry
                         network_cidr = self.aggregate_networks(network_cidr, matching_in_table)
                         netmask_parts = netmask.split('.')
@@ -351,9 +348,12 @@ class Router:
                         del self.forwarding_table[matching_in_table]
                         break
                     else:
-                        print(f"**ORANGE**")
+                        continue
 
-        
+                else:
+                    break
+            else:
+                break
         # if the network IP in the first layer of the dict, not in forwarding
         # table, add it along with paths of announcements
         if network_cidr not in self.forwarding_table:
@@ -677,7 +677,7 @@ class Router:
                         # initialize variable to store lowest network IP address, 
                         # select arbitrary first route to tie break, converted to binary
                         lowest_network_ip = self.converting_to_binary(best_routes[0]['peer'])
-                        print(f"**LOWEST NETWORK IP**: {lowest_network_ip}")
+                        # print(f"**LOWEST NETWORK IP**: {lowest_network_ip}")
                         lowest_network_ip = int(lowest_network_ip, 2)
                         route_tie_winner = [best_routes[0]]
                         for route in best_routes:
