@@ -114,7 +114,7 @@ class Router:
         elif msg_type == 'dump':
             self.handle_dump(msg)
         else:
-            raise ValueError(f'Message type error: {msg_type}')
+            raise ValueError(f'**HANDLE MSG** type error: {msg_type}')
 
     def converting_to_binary(self, address):
         '''
@@ -502,6 +502,8 @@ class Router:
         if not best_routes:
             # send no route message to src
             self.handle_no_route(src, dst)
+        
+        # case where there is only one best route
         elif len(best_routes) == 1:
             # send data message to selected best route in list of best routes
             selected_route = best_routes[0]
@@ -515,8 +517,9 @@ class Router:
             # Send the update announcement
             self.send(selected_route['peer'], json.dumps(data_msg))
             print(f"**DATA MESSAGE**: {json.dumps(data_msg, indent=4)}")
+        
+        # case where there is more than one best route
         elif len(best_routes) > 1:
-            # TODO: need to handle case where there are multiple best routes!!
             # tie breaker logic
             selected_route = self.handle_tie_breaker(best_routes)
             # Establishing the data message to be sent
