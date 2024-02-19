@@ -2,75 +2,83 @@
 
 import struct
 
-def ip_to_int(ip):
-    split_ip = ip.split('.')
-    return tuple(int(x) for x in split_ip)
-
-def are_addresses_adjacent(entry1, entry2):
-    ip1, prefix1 = entry1.split('/')
-    ip2, prefix2 = entry2.split('/')
-    if prefix1 != prefix2:
-        return False
-    ip_int1 = int(''.join(map(str, ip_to_int(ip1))), 10)
-    ip_int2 = int(''.join(map(str, ip_to_int(ip2))), 10)
-    return (ip_int1 + (2 ** (32 - int(prefix1)) - 1)) == ip_int2
-
-def figure_out_range(CIDR_address):
-    ip_address = CIDR_address.split('/')[0]
-    cidr = int(CIDR_address.split('/')[1])
-    host_bits = 32 - cidr
-    i = struct.unpack('>I', struct.pack('!4B', *[int(x) for x in ip_address.split('.')]))[0]
-    start = (i >> host_bits) << host_bits
-    end = start | ((1 << host_bits) - 1)
-    subnet_addresses = []
-    for i in range(start, end + 1):  # Adjusted the range to include the end IP
-        subnet_addresses.append('.'.join(str((i >> (8 * j)) & 255) for j in range(3, -1, -1)))
-    return subnet_addresses
-
-def increment_ip(ip):
-    # Split the IP address into its octets
-    octets = ip.split('.')
-    
-    # Convert each octet to an integer
-    octets = [int(octet) for octet in octets]
-    
-    # Increment the last octet
-    octets[-1] += 1
-    
-    # Handle overflow
-    for i in range(len(octets) - 1, 0, -1):
-        if octets[i] > 255:
-            octets[i] = 0
-            octets[i - 1] += 1
-    
-    # Convert the octets back to strings and join them with '.'
-    new_ip = '.'.join(str(octet) for octet in octets)
-    
-    return new_ip
-
-def are_cidr_addresses_adjacent(entry1, entry2):
-    # Get the range of IP addresses for each CIDR address
-    range1 = figure_out_range(entry1)
-    range2 = figure_out_range(entry2)
-    # Last IP of range1 + 1
-    end1 = increment_ip(range1[-1])
-    # Last IP of range2 + 1
-    end2 = increment_ip(range2[-1])
-    # Check if the last IP of range1 + 1 is the same as the first IP of range2
-    # or if the last IP of range2 + 1 is the same as the first IP of range1
-    if range1[0] == end2 or range2[0] == end1:
-        return True
-    else:
-        return False
+def aggregation(forwarding_table, ip1, ip2):
+    print(forwarding_table[ip1])
     
 
 def main():
-    entry1 = "192.168.3.0/24"
-    entry2 = "192.168.0.0/24"
-    # print(figure_out_range(entry2))
-    print(are_cidr_addresses_adjacent(entry1, entry2))
-
-
+    forwarding_table = {
+     "192.168.1.0/24": {
+         "192.168.0.2": {
+             "netmask": "255.255.255.0",
+             "dst": "192.168.0.1",
+             "ASPath": [
+                 16,
+                 1
+             ],
+             "localpref": 100,
+             "origin": "EGP",
+             "SelfOrigin": True,
+             "relation": "cust",
+             "network_ip": "192.168.1.0"
+         }
+     },
+     "172.169.0.0/16": {
+         "172.168.0.2": {
+             "netmask": "255.255.0.0",
+             "dst": "172.168.0.1",
+             "ASPath": [
+                 16,
+                 2
+             ],
+             "localpref": 100,
+             "origin": "EGP",
+             "SelfOrigin": True,
+             "relation": "cust",
+             "network_ip": "172.169.0.0"
+         },
+         "10.0.0.2": {
+             "netmask": "255.255.0.0",
+             "dst": "10.0.0.1",
+             "ASPath": [
+                 16,
+                 3,
+                 2
+             ],
+             "localpref": 100,
+             "origin": "EGP",
+             "SelfOrigin": False,
+             "relation": "cust",
+             "network_ip": "172.169.0.0"
+         }
+     },
+     "11.0.0.0/8": {
+         "10.0.0.2": {
+             "netmask": "255.0.0.0",
+             "dst": "10.0.0.1",
+             "ASPath": [
+                 16,
+                 3
+             ],
+             "localpref": 100,
+             "origin": "EGP",
+             "SelfOrigin": True,
+             "relation": "cust",
+             "network_ip": "11.0.0.0"
+         }
+     }
+}
+    
+    for network in forwarding_table:
+        if len(forwarding_table[network]) > 1:
+            for source in forwarding_table[network]:
+                for other_source in forwarding_table[network]:
+                    if source != other_source:
+                        print(aggregation(forwarding_table, other_source, source))
+                        
+                
+                
+    
 if __name__ == "__main__":
     main()
 
