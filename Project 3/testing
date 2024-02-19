@@ -1,9 +1,170 @@
 #!/usr/bin/env -S python3 -u
 
 import struct
+    
+def figure_out_range(CIDR_address):
+        '''
+        This function is responsible for figuring out the range of IP addresses.
+        Params:
+            @CIDR_address: The CIDR address
+        Returns: A list containing the range of IP addresses
+        '''
+        # Isolate the ip address from the CIDR notation
+        ip_address = CIDR_address.split('/')[0]
+        # Isolate the CIDR from the CIDR notation
+        cidr = int(CIDR_address.split('/')[1])
+        # Figure out the number of host bits
+        host_bits = 32 - cidr
+        # Able to convert the ip address into a 32-bit unsigned integer
+        i = struct.unpack('>I', struct.pack('!4B', *[int(x) for x in ip_address.split('.')]))[0]
+        # Figure out the start of the range
+        start = (i >> host_bits) << host_bits
+        # Figure out the end of the range
+        end = start | ((1 << host_bits) - 1)
+        subnet_addresses = []
+        # Iterate through the range of IP addresses
+        for i in range(start, end + 1):
+            subnet_addresses.append('.'.join(str((i >> (8 * j)) & 255) for j in range(3, -1, -1)))
+        # Return the range of IP addresses
+        return subnet_addresses
+    
 
-def aggregation(forwarding_table, ip1, ip2):
-    print(forwarding_table[ip1])
+
+def is_there_aggregation(forwarding_table, network, new_network):
+        '''
+        This function handles the process of aggregating the given data. 
+        It does this by looking at the following conditions:
+        (1) Adjacent numerically
+        (2) Have the same next-hop 
+        (2) Have the same attributes then the two entries can be aggregated into
+        a single entry
+        '''
+        # -- (1) Adjacent numerically --
+        range1 = figure_out_range(network)
+        range2 = figure_out_range(new_network)
+        adjacent_numerically = are_cidr_addresses_adjacent(range1, range2)
+        
+        # -- (2) Have the same next-hop router then the two entries can be aggregated into a single entry --
+        same_next_hop = is_there_same_next_hop(forwarding_table, network, new_network)
+        # -- (3) Have the same attributes then the two entries can be aggregated into a single entry -- 
+        # returns True if any entries within a Network CIDR have the same attributes
+        # also returns the specific network CIDRs that contain src_ip's with the same attributes
+        
+        # is_there_same_attributes, _ = same_attributes(network, new_network, forwarding_table)
+
+        # Checking to see if all of the conditions are true
+        if adjacent_numerically and same_next_hop:
+            return True
+        else:
+            return False
+
+def are_cidr_addresses_adjacent(range1, range2):
+        '''
+        This function is responsible for checking if the given CIDR addresses are adjacent.
+        Params:
+            @range1: The range of IP addresses for the first CIDR address
+            @range2: The range of IP addresses for the second CIDR address
+        Returns: Boolean depending on if the CIDR addresses are adjacent
+        '''
+        # Last IP of range1 + 1
+        end1 = increment_ip(range1[-1])
+        # Last IP of range2 + 1
+        end2 = increment_ip(range2[-1])
+        # Check if the last IP of range1 + 1 is the same as the first IP of range2
+        # or if the last IP of range2 + 1 is the same as the first IP of range1
+        # or if the first IP of range1 is the same as the first IP of range2
+        if range1[0] == end2 or range2[0] == end1 or range1[0] == range2[0]:
+            return True
+        else:
+            return False
+        
+def increment_ip(ip):
+        '''
+        This function is responsible for incrementing the given IP address.
+        -- Helper function for are_cidr_addresses_adjacent --
+        Params:
+            @ip: The IP address to be incremented
+        Returns: The incremented IP address
+        '''
+        # Split the IP address into its octets
+        octets = ip.split('.')
+        # Convert each octet to an integer
+        octets = [int(octet) for octet in octets]
+        # Increment the last octet
+        octets[-1] += 1
+        # Handle adding rules for IP addresses
+        for i in range(len(octets) - 1, 0, -1):
+            if octets[i] > 255:
+                octets[i] = 0
+                octets[i - 1] += 1
+        # Convert the octets back to strings and join them with '.'
+        new_ip = '.'.join(str(octet) for octet in octets)
+        return new_ip
+
+def is_there_same_next_hop(forwarding_table, network, new_network):
+        '''
+        This function is checking if the next-hop router is the same for the two
+        networks.
+        Params:
+            @network: The first network
+            @new_network: The second network
+        '''
+        print(network.keys())
+        # for sources in forwarding_table[new_network]:
+        #      if sources == src:
+        #             return True
+
+        
+def same_attributes(network, new_network, forwarding_table):
+        """
+        Test function to check if src_ip's attributes are the same within the same network
+        CIDR. If they are, the src_ip's entires can be aggregated into one entry,
+        return True. {See the testing_sameAttribute for testing!}
+        """
+
+        # TODO: if (3) have the same attributes == True
+        
+        # initialize bool to see if aggregation is possible
+        can_aggregate = False
+        # track the network_cidr that contains src_ip's with the same attributes
+        # might be useful later, when we need to aggregate specific network CIDRs
+        network_cidr_containing_same_attributes = set()
+
+        # iterate through each network CIDR in forwarding table
+        for network_cidr, src_data in forwarding_table.items():
+            print(f"Network CIDR: {network_cidr}")
+            print(f"Source Data: {src_data}\n")
+
+            # create list of source IPs within the network CIDR
+            src_ip = list(src_data.keys())
+            # iterate through each src ip to compare their attributes
+            for i in range(len(src_ip)):
+                for j in range(i + 1, len(src_ip)):
+                    src_ip1 = src_ip[i]
+                    src_ip2 = src_ip[j]
+                    print(f"COMPARING {src_ip1} and {src_ip2}")
+
+                    # check if certain attributes are the same for both source IPs
+                    # check for localpref, selfOrigin, ASPath, and origin
+                    # TODO: ASSUMING THESE ARE THE ONLY ATTRIBUTES THAT MATTER
+                    if src_data[src_ip1]["localpref"] == src_data[src_ip2]["localpref"] and \
+                    src_data[src_ip1]["SelfOrigin"] == src_data[src_ip2]["SelfOrigin"] and \
+                    src_data[src_ip1]["ASPath"] == src_data[src_ip2]["ASPath"] and \
+                    src_data[src_ip1]["origin"] == src_data[src_ip2]["origin"]:
+                        
+                        # mark true if aggregation is possible
+                        can_aggregate = True  
+                        # track network_cidr that contains src_ip's with the same attributes
+                        network_cidr_containing_same_attributes.add(network_cidr)
+                        print(f"{src_ip1} & {src_ip2} CAN BE aggregated based on identical attributes. \n")
+
+                    else:
+                        # remains false if aggregation is not possible
+                        print(f"{src_ip1} & {src_ip2} **CANNOT** be aggregated based on identical attributes. \n")
+
+        print(f"Network CIDRs containing same attributes: {network_cidr_containing_same_attributes}\n")
+        return can_aggregate, network_cidr_containing_same_attributes
+  
     
 
 def main():
@@ -69,16 +230,37 @@ def main():
      }
 }
     
+    update_message = {
+    "192.168.0.0/24": {
+        "192.168.0.2": {
+             "netmask": "255.255.255.0",
+             "dst": "192.168.0.1",
+             "ASPath": [
+                 16,
+                 1
+             ],
+             "localpref": 100,
+             "origin": "EGP",
+             "SelfOrigin": True,
+             "relation": "cust",
+             "network_ip": "192.168.1.0"
+         }
+     }
+    }
+
+    network_cidr = "192.168.0.0/24"
+
     for network in forwarding_table:
-        if len(forwarding_table[network]) > 1:
-            for source in forwarding_table[network]:
-                for other_source in forwarding_table[network]:
-                    if source != other_source:
-                        print(aggregation(forwarding_table, other_source, source))
-                        
+        if is_there_aggregation(forwarding_table, network_cidr, network):
+            print("Aggregation is possible")
+            break
+        else:
+            print("Aggregation is not possible")
+            break
+            
+
                 
                 
-    
 if __name__ == "__main__":
     main()
 
