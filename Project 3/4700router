@@ -210,8 +210,9 @@ class Router:
 
         # -- (2) Forward to the same next-hop router --
         # Checking to see if they have the same next-hop router
-        same_next_hop = False
+        same_next_hop = self.same_hop(entry1, entry2)
 
+                
         # -- (3) Have the same attributes then the two entries can be aggregated into a single entry -- 
         # returns True if any entries within a Network CIDR have the same attributes
         # also returns the specific network CIDRs that contain src_ip's with the same attributes
@@ -267,7 +268,17 @@ class Router:
         new_ip = '.'.join(str(octet) for octet in octets)
         return new_ip
 
-    def same_attributes(forwarding_table):
+    def same_hop(self, entry1, entry2):
+        '''
+        This function is able to determine if the next-hop router is the same
+        for entry1 and entry2. 
+        '''
+        if self.forwarding_table[entry1]['next_hop'] == entry2['next_hop']:
+            return True
+
+        return
+        
+    def same_attributes(self, forwarding_table):
         """
         Test function to check if src_ip's attributes are the same within the same network
         CIDR. If they are, the src_ip's entires can be aggregated into one entry,
@@ -371,19 +382,33 @@ class Router:
                 'origin': origin,
                 'SelfOrigin': selfOrigin,
                 'relation': relation,
-                'network_ip': network_ip
+                'network_ip': network_ip,
+                'next_hop': network_ip
             }
         # formated print for debugging
-        print("**FORWARDING TABLE UPDATED**:\n" + json.dumps(self.forwarding_table, indent=4))
+        print("**FORWARDING TABLE UPDATED**:\n" + json.dumps(self.forwarding_table, indent=3))
 
-        # TODO: implement aggregation
-        # for entry1 in self.forwarding_table:
-        #     for entry2 in self.forwarding_table:
-        #         if entry1 != entry2:
-        #             # aggregate the entries
-        #             if self.aggregation(entry1, entry2):
-        #                 print(f"**AGGREGATION**: {entry1} & {entry2}")
-
+        # # TODO: implement aggregation
+        # for network in self.forwarding_table:
+        #     # Want to make sure there is more than one source key under the entry
+        #     if len(self.forwarding_table[network]) > 1:
+        #         # Loop through the src ip addresses of the entry
+        #         for source in self.forwarding_table[network]:
+        #             for other_source in self.forwarding_table[network]:
+        #                if other_source != source:
+        #                   # Check if the two next_hops are the same
+        #                   if self.forwarding_table[network][source]['next_hop'] == forwarding_table[network][other_source]['next_hop']:
+        #                        # If the two entries can be aggregated
+        #                        if self.aggregation(source, other_source):
+        #                             self.aggregate(source, other_source)
+        #                             print("**FORWARDING TABLE UPDATED AFTER AGGREGATION**:\n" + json.dumps(self.forwarding_table, indent=4))
+        #                        else:
+        #                            break
+        #             else:
+        #                    break
+        #     else:
+        #         break
+                               
      
         # forward update announcement to all neighbors except source IP
         for connection in self.connections:
@@ -506,29 +531,6 @@ class Router:
                     # send the withdrawal announcement
                     self.send(neighbor, json.dumps(withdraw_msg))
         return
-             
-    # def handle_data(self, msg):
-    #     # Extract destination IP from data message received
-    #     dst = msg['dst']
-    #     src = msg['src']
-    #     # Loop through forwarding table entries to find the best route
-    #     for entry in self.forwarding_table:
-    #         # Check if the destination IP falls within the range of this entry
-    #         if dst in self.figure_out_range(entry):
-    #             # Loop through the src ip addresses of the entry
-    #             for ip_address in self.forwarding_table[entry]:
-    #                 # Establishing the data message to be sent
-    #                 data_msg = {
-    #                     'src': src,
-    #                     'dst': dst,
-    #                     'type': 'data',
-    #                     'msg': msg['msg']  # Forward the original message content
-    #                 }
-    #                 # Send the update announcement
-    #                 self.send(ip_address, json.dumps(data_msg))
-    #                 print(f"**DATA MESSAGE**: {data_msg}")
-    #     # Exit the function once the message is forwarded
-    #     return
     
 
     def handle_data(self, msg):
@@ -627,18 +629,102 @@ class Router:
 
     def handle_tie_breaker(self, best_routes):
         # break tie for highest localpref
-        highest_localpref = -1
+        # initialize variables to store highest localpref and route of tie
+        # winner
         route_tie_winner = []
+        highest_localpref = -1
         for route in best_routes:
+            # if localpref is greater than current highest localpref
             if route['localpref'] > highest_localpref:
+                # update highest localpref and make route the tie winner
                 highest_localpref = route['localpref']
                 route_tie_winner = [route]
+            # if there is a tie for highest localpref, append route to tie winner list
             if route['localpref'] == highest_localpref:
                 route_tie_winner.append(route)
+        # add all routes with the highest localpref to best routes
         best_routes = route_tie_winner
         
-        # break tie for selfOrigin
+        # if there is more than one route with the highest localpref, break tie using selfOrigin
+        # reset variables to store route of new tie winner
+        route_tie_winner = []
+        if len(best_routes) > 1:
+            for route in best_routes:
+                # if route selfOrigin is True, make route the tie winner
+                if route['selfOrigin'] == True:
+                    route_tie_winner.append(route)
+                if len(route_tie_winner) > 0:
+                    best_routes = route_tie_winner
+                  
+            # reset variables to store route of new tie winner
+            route_tie_winner = []      
+            # if there is still a tie with selfOrigin, break tie using shortest ASPath
+            if len(best_routes) > 1:
+                # initialize variable to store shortest ASPath, select first route
+                shortest_aspath = len(best_routes[0]['ASPath'])
+                for route in best_routes:
+                    # route with shortest ASPath is the tie winner
+                    if len(route['ASPath']) < shortest_aspath:
+                        shortest_aspath = len(route['ASPath'])
+                        route_tie_winner = [route]
+                    # if there is a tie for shortest ASPath, append route to tie winner list
+                    if len(route['ASPath']) == shortest_aspath:
+                        route_tie_winner.append(route)
+                # add all routes with the shortest ASPath to best routes
+                best_routes = route_tie_winner
+                
+                # reset variables to store route of new tie winner
+                route_tie_winner = []
+                # if there is still a tie, break tie using origin (preference order is IGP > EGP > UNK)
+                if len(best_routes) > 1:
+                    # initialize variable to store origin preference, select first route to tie break
+                    for route in best_routes:
+                        # if origin is IGP, make route the tie winner
+                        if route['origin'] == 'IGP':
+                            route_tie_winner.append(route)
+                    # if there is no IGP in routes to consider, break tie using EGP
+                    if route_tie_winner == []:
+                        for route in best_routes:
+                            # if origin is EGP, make route the tie winner
+                            if route['origin'] == 'EGP':
+                                route_tie_winner.append(route)
+                    # if there is no IGP or EGP in routes to consider, break tie using UNK
+                    if route_tie_winner == []:
+                        for route in best_routes:
+                            # if origin is UNK, make route the tie winner
+                            if route['origin'] == 'UNK':
+                                route_tie_winner.append(route)
+                    # add all routes with the highest origin preference to best routes
+                    best_routes = route_tie_winner
+                    
+                    # reset variables to store route of new tie winner
+                    route_tie_winner = []
+                    # if there is still a tie, break tie using lowest network IP address
+                    if len(best_routes) > 1:
+                        # initialize variable to store lowest network IP address, 
+                        # select arbitrary first route to tie break, converted to binary
+                        lowest_network_ip = self.converting_to_binary(best_routes[0]['peer'])
+                        print(f"**LOWEST NETWORK IP**: {lowest_network_ip}")
+                        lowest_network_ip = int(lowest_network_ip, 2)
+                        route_tie_winner = [best_routes[0]]
+                        for route in best_routes:
+                            # convert network IP to binary
+                            network_ip = self.converting_to_binary(route['peer'])
+                            network_ip = int(network_ip, 2)
+                            # if network IP is less than current lowest network IP, make route the tie winner
+                            if network_ip < lowest_network_ip:
+                                lowest_network_ip = network_ip
+                                route_tie_winner = [route]
+                        best_routes = route_tie_winner
+                        return best_routes[0]
         
+        # if there is still a tie, return first route in list
+        if len(route_tie_winner) > 0:
+            return route_tie_winner[0]
+        else:
+            print(f"**TIE-BREAKER ERROR**: No route found")           
+
+        # return tie-breaker
         return best_routes[0]
 
 
