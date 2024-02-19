@@ -1,51 +1,136 @@
-#!/usr/bin/env -S python3 -u
+def converting_to_binary(address):
+    '''
+    This function is responsible for converting the given IP address
+    into its corresponding binary notation.
+    Params:
+        @address: The IP address to be converted
+    Returns: The converted IP address in binary notation
+    '''
+    # Split the address into its quads
+    subnet_split = address.split('.')
+    converted_address = ""
+    # Iterate through the quads
+    for i in subnet_split:
+        binary = ""
+        # Convert the quad into an integer
+        decimal = int(i)
+        # While the decimal is not zero
+        while decimal > 0:
+            # Convert the decimal into binary
+            binary = str(decimal % 2) + binary
+            decimal = decimal // 2
+        # If the binary number is less than 8 bits long, add leading zeros
+        binary = binary.zfill(8)
+        converted_address += str(binary)
+    # Return the converted subnet
+    return converted_address
+
+def are_cidr_addresses_adjacent(network_cidr, matching_in_table ):
+        '''
+        This function is responsible for checking if the given CIDR addresses are adjacent.
+        '''
+        network_cidr = network_cidr.split('/')[0]
+        matching_in_table = matching_in_table.split('/')[0]
+        prefix_with_masking_new_network_binary = converting_to_binary(network_cidr)
+        prefix_with_masking_network_binary = converting_to_binary(matching_in_table)
+
+        matching_bits = 0
+        for bit1, bit2 in zip(prefix_with_masking_new_network_binary, prefix_with_masking_network_binary):
+            if bit1 != bit2:
+                break
+            matching_bits += 1
+
+        return matching_bits
 
 def compare_ips(ip1, ip2):
-    ip1 = ip1.split('/')[0]
-    ip2 = ip2.split('/')[0]
-    # Split the IP addresses into their components
-    ip1_parts = ip1.split('.')
-    ip2_parts = ip2.split('.')
-    
-    # Convert each part of the IP address to integers
-    ip1_int = [int(part) for part in ip1_parts]
-    ip2_int = [int(part) for part in ip2_parts]
-    
-    # Compare the numerical values of the IP addresses
-    for i in range(4):
-        if ip1_int[i] > ip2_int[i]:
-            return f"{ip1} is larger than {ip2}"
-        elif ip1_int[i] < ip2_int[i]:
-            return f"{ip2} is larger than {ip1}"
-    
-    return "Both IP addresses are equal"
+        ip1_address = ip1.split('/')[0]
+        ip2_address = ip2.split('/')[0]
+        # Split the IP addresses into their components
+        ip1_parts = ip1_address.split('.')
+        ip2_parts = ip2_address.split('.')
+        
+        # Convert each part of the IP address to integers
+        ip1_int = [int(part) for part in ip1_parts]
+        ip2_int = [int(part) for part in ip2_parts]
+        
+        # Compare the numerical values of the IP addresses
+        for i in range(4):
+            if ip1_int[i] > ip2_int[i]:
+                return ip2
+            elif ip1_int[i] < ip2_int[i]:
+                return ip1
 
-# Example usage
-ip = "192.0.0.0/24"
-ip2 = "192.0.0.0/24"
-cidr = ip.split('/')[0] + "/" + str((int(ip.split('/')[1]) - 1))
-print(cidr)
+def converting_to_cidr(subnet_mask, ip_address):
+        '''
+        This function is responsible for converting given ip address, and subnet mask into
+        their corresponding CIDR notation.
+        Params:
+            @subnet_mask: The subnet mask of the ip address
+            @ip_address: The network IP address
+        Returns: The formatted CIDR address
+        '''
+        # Check if subnet mask in netmask notation
+        if isinstance(subnet_mask, int):
+            # If the subnet mask is in CIDR notation, return the CIDR address
+            return ip_address + "/" + str(subnet_mask)
+        elif '.' in subnet_mask:
+            # Figure out subnet mask CIDR prefix
+            converted_subnet = converting_to_binary(subnet_mask)
+            consecutive_ones = 0
+            # Count the number of consecutive ones in the subnet mask
+            for i in converted_subnet:
+                if i == '1':
+                    consecutive_ones += 1
+                else:
+                    break 
+            # Form the CIDR address
+            CIDR_address = ip_address + "/" + str(consecutive_ones)
+            # Return the CIDR address
+            return CIDR_address
 
-netmask = "255.255.255.255"
-netmask_parts = netmask.split('.')
-netmask_int = [int(part) for part in netmask_parts]
+def aggregate_networks(entry1, entry2, netmask):
+        '''
+        This function is responsible for aggregating the given entries.
+        Params:
+            @entry1: The first entry to be aggregated
+            @entry2: The second entry to be aggregated
+        '''
+        # TODO: Figure out how to combine the two entries into one entry    
+        smaller_ip = compare_ips(entry1, entry2).split('/')[0]
+        
+        combined_entry = converting_to_cidr(netmask, smaller_ip)
+        print(f"**COMBINED ENTRY**: {combined_entry}")
+        return combined_entry, netmask
 
-# Decrement each quad of the netmask by one
-for i in range(3, -1, -1):
-    # Decrement the current quad
-    netmask_int[i] -= 1
-    # If the current quad becomes zero, move to the next quad
-    if netmask_int[i] == -1:
-        netmask_int[i] = 0
-    else:
-        break  # Exit the loop if the quad is decremented without becoming zero
+def cidr_to_subnet_mask(cidr):
+    if not 0 <= cidr <= 32:
+        raise ValueError("Prefix length must be between 0 and 32")
 
-netmask = '.'.join(str(part) for part in netmask_int)
-print(netmask)
+    # Calculate the subnet mask
+    mask = 0xFFFFFFFF ^ (1 << (32 - cidr)) - 1
 
+    # Convert the mask to dotted-decimal notation
+    subnet_mask = []
+    for i in range(0, 32, 8):
+        subnet_mask.append(str((mask >> i) & 0xFF))
 
-print(compare_ips(ip, ip2))
+    return ".".join(subnet_mask[::-1])
 
+def main():
+     # Two different entries that we are comparing
+     network1 = "192.168.0.0/23"
+     network2 = "192.168.2.0/23"
+     netmask = "255.255.254.0"
+     CIDR_prefix= are_cidr_addresses_adjacent(network1, network2)
+     print(CIDR_prefix)
+     # New Network
+     new_network = compare_ips(network1, network2).split('/')[0]
+     print(new_network)
+     # Figure out CIDR notation
+     netmask = cidr_to_subnet_mask(CIDR_prefix)
+     print(converting_to_cidr(netmask, new_network))
+     
 
-
-  
+     # print(network_mask)
+if __name__ == "__main__":
+    main()

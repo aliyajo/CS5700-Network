@@ -145,6 +145,20 @@ class Router:
         # Return the converted subnet
         return converted_address
     
+    def cidr_to_subnet_mask(self, cidr):
+        if not 0 <= cidr <= 32:
+            raise ValueError("Prefix length must be between 0 and 32")
+
+        # Calculate the subnet mask
+        mask = 0xFFFFFFFF ^ (1 << (32 - cidr)) - 1
+
+        # Convert the mask to dotted-decimal notation
+        subnet_mask = []
+        for i in range(0, 32, 8):
+            subnet_mask.append(str((mask >> i) & 0xFF))
+
+        return ".".join(subnet_mask[::-1])
+    
     def converting_to_cidr(self, subnet_mask, ip_address):
         '''
         This function is responsible for converting given ip address, and subnet mask into
@@ -154,20 +168,24 @@ class Router:
             @ip_address: The network IP address
         Returns: The formatted CIDR address
         '''
-        # Figure out subnet mask CIDR prefix
-        converted_subnet = self.converting_to_binary(subnet_mask)
-        consecutive_ones = 0
-        # Count the number of consecutive ones in the subnet mask
-        for i in converted_subnet:
-            if i == '1':
-                consecutive_ones += 1
-            else:
-                break 
-        # Form the CIDR address
-        CIDR_address = ip_address + "/" + str(consecutive_ones)
-        # Return the CIDR address
-        return CIDR_address
-    
+        # Check if subnet mask in netmask notation
+        if isinstance(subnet_mask, int):
+            # If the subnet mask is in CIDR notation, return the CIDR address
+            return ip_address + "/" + str(subnet_mask)
+        elif '.' in subnet_mask:
+            # Figure out subnet mask CIDR prefix
+            converted_subnet = self.converting_to_binary(subnet_mask)
+            consecutive_ones = 0
+            # Count the number of consecutive ones in the subnet mask
+            for i in converted_subnet:
+                if i == '1':
+                    consecutive_ones += 1
+                else:
+                    break 
+            # Form the CIDR address
+            CIDR_address = ip_address + "/" + str(consecutive_ones)
+            # Return the CIDR address
+            return CIDR_address
     def figure_out_range(self, CIDR_address):
         '''
         This function is responsible for figuring out the range of IP addresses.
@@ -213,24 +231,22 @@ class Router:
                 return ip1
         
 
-    def are_cidr_addresses_adjacent(self, range1, range2):
+    def are_cidr_addresses_adjacent(self,network_cidr, matching_in_table ):
         '''
         This function is responsible for checking if the given CIDR addresses are adjacent.
-        Params:
-            @range1: The range of IP addresses for the first CIDR address
-            @range2: The range of IP addresses for the second CIDR address
-        Returns: Boolean depending on if the CIDR addresses are adjacent
         '''
-        # Last IP of range1 + 1
-        end1 = self.increment_ip(range1[-1])
-        # Last IP of range2 + 1
-        end2 = self.increment_ip(range2[-1])
-        # Check if the last IP of range1 + 1 is the same as the first IP of range2
-        # or if the last IP of range2 + 1 is the same as the first IP of range1
-        if range1[0] == end2 or range2[0] == end1:
-            return True
-        else:
-            return False
+        network_cidr = network_cidr.split('/')[0]
+        matching_in_table = matching_in_table.split('/')[0]
+        prefix_with_masking_new_network_binary = self.converting_to_binary(network_cidr)
+        prefix_with_masking_network_binary = self.converting_to_binary(matching_in_table)
+
+        matching_bits = 0
+        for bit1, bit2 in zip(prefix_with_masking_new_network_binary, prefix_with_masking_network_binary):
+            if bit1 != bit2:
+                break
+            matching_bits += 1
+
+        return matching_bits
         
     def increment_ip(self, ip):
         '''
@@ -276,7 +292,7 @@ class Router:
                     return False
 
 
-    def aggregate_networks(self, entry1, entry2):
+    def aggregate_networks(self, entry1, entry2, netmask):
         '''
         This function is responsible for aggregating the given entries.
         Params:
@@ -284,10 +300,11 @@ class Router:
             @entry2: The second entry to be aggregated
         '''
         # TODO: Figure out how to combine the two entries into one entry    
-        larger_ip = self.compare_ips(entry1, entry2)
-        combined_entry = larger_ip.split('/')[0] + "/" + str((int(larger_ip.split('/')[1]) - 1))
+        smaller_ip = self.compare_ips(entry1, entry2).split('/')[0]
+        
+        combined_entry = self.converting_to_cidr(netmask, smaller_ip)
         print(f"**COMBINED ENTRY**: {combined_entry}")
-        return combined_entry
+        return combined_entry, netmask
         
 
     def handle_update(self, msg):
@@ -330,23 +347,11 @@ class Router:
                 # If there are same hops, then we can see if can aggregate
                 if network_cidr != network:
                     matching_in_table = network
-                    if self.has_same_attributes(localpref, ASPath, origin, selfOrigin, matching_in_table) and self.are_cidr_addresses_adjacent(self.figure_out_range(network_cidr), self.figure_out_range(matching_in_table)) == True:
-                        # TODO: Figure out how to combine the two entries into one entry
-                        network_cidr = self.aggregate_networks(network_cidr, matching_in_table)
-                        netmask_parts = netmask.split('.')
-                        netmask_int = [int(part) for part in netmask_parts]
-
-                        # Decrement each quad of the netmask by one
-                        for i in range(3, -1, -1):
-                            # Decrement the current quad
-                            netmask_int[i] -= 1
-                            # If the current quad becomes zero, move to the next quad
-                            if netmask_int[i] == -1:
-                                netmask_int[i] = 0
-                            else:
-                                break  # Exit the loop if the quad is decremented without becoming zero
-
-                        netmask = '.'.join(str(part) for part in netmask_int)
+                    if self.has_same_attributes(localpref, ASPath, origin, selfOrigin, matching_in_table):
+                        CIDR_prefix = self.are_cidr_addresses_adjacent(network_cidr, matching_in_table)
+                        new_network = self.compare_ips(network_cidr, matching_in_table).split('/')[0]
+                        netmask = self.cidr_to_subnet_mask(CIDR_prefix)
+                        network_cidr = self.converting_to_cidr(CIDR_prefix, new_network)
                         del self.forwarding_table[matching_in_table]
                         break
                     else:
@@ -740,7 +745,7 @@ class Router:
 
         # Prepare a list to hold all the route entries
         table_entries = []
-
+        print(f"*FORWARDING TABLE DUMP*: {json.dumps(self.forwarding_table, indent=3)}")
         # Iterate over each network in the forwarding table
         for network_cidr, peers in self.forwarding_table.items():
             for peer, details in peers.items():
