@@ -86,15 +86,14 @@ class Router:
                 print("Received message '%s' from %s" % (msg, srcif))
                 
                 try:
-                    # Load the recieved message into a dictionary
+                    # Load the message into a json object
                     msg = json.loads(msg)
-                except:
-                    print('Error parsing message')
-                    continue
-                
-                # Handle the message according to the message type
-                self.handle_msg(msg, srcif)
-        return
+
+                    # Handle the message according to the message type
+                    self.handle_msg(msg, srcif)
+                    
+                except Exception as e:
+                    print('**ERROR** parsing message: %s' % e)
     
     
     def handle_msg(self, msg, srcif):
@@ -111,8 +110,7 @@ class Router:
         elif msg_type == 'withdraw':
             self.handle_withdraw(msg)
         elif msg_type == 'data':
-            # self.handle_data(msg)
-            pass
+            self.handle_data(msg)
         elif msg_type == 'dump':
             self.handle_dump(msg)
         else:
@@ -508,31 +506,124 @@ class Router:
                     # send the withdrawal announcement
                     self.send(neighbor, json.dumps(withdraw_msg))
         return
-                    
+             
+    # def handle_data(self, msg):
+    #     # Extract destination IP from data message received
+    #     dst = msg['dst']
+    #     src = msg['src']
+    #     # Loop through forwarding table entries to find the best route
+    #     for entry in self.forwarding_table:
+    #         # Check if the destination IP falls within the range of this entry
+    #         if dst in self.figure_out_range(entry):
+    #             # Loop through the src ip addresses of the entry
+    #             for ip_address in self.forwarding_table[entry]:
+    #                 # Establishing the data message to be sent
+    #                 data_msg = {
+    #                     'src': src,
+    #                     'dst': dst,
+    #                     'type': 'data',
+    #                     'msg': msg['msg']  # Forward the original message content
+    #                 }
+    #                 # Send the update announcement
+    #                 self.send(ip_address, json.dumps(data_msg))
+    #                 print(f"**DATA MESSAGE**: {data_msg}")
+    #     # Exit the function once the message is forwarded
+    #     return
+    
 
     def handle_data(self, msg):
-        # Extract destination IP from data message received
+        # extract dst and src from data message
         dst = msg['dst']
         src = msg['src']
-        # Loop through forwarding table entries to find the best route
-        for entry in self.forwarding_table:
-            # Check if the destination IP falls within the range of this entry
-            if dst in self.figure_out_range(entry):
-                # Loop through the src ip addresses of the entry
-                for ip_address in self.forwarding_table[entry]:
-                    # Establishing the data message to be sent
-                    data_msg = {
-                        'src': src,
-                        'dst': dst,
-                        'type': 'data',
-                        'msg': msg['msg']  # Forward the original message content
-                    }
-                    # Send the update announcement
-                    self.send(ip_address, json.dumps(data_msg))
-                    print(f"**DATA MESSAGE**: {data_msg}")
+        
+        # find best route to dst
+        best_routes = self.find_best_route(dst)
+        
+        # case where there is no best route
+        if not best_routes:
+            # send no route message to src
+            self.handle_no_route(src, dst)
+        elif len(best_routes) == 1:
+            # send data message to selected best route in list of best routes
+            selected_route = best_routes[0]
+            # Establishing the data message to be sent
+            data_msg = {
+                'src': self.our_addr(src),
+                'dst': selected_route['dst'],
+                'type': 'data',
+                'msg': msg['msg']
+            }
+            # Send the update announcement
+            self.send(selected_route['peer'], json.dumps(data_msg))
+            print(f"**DATA MESSAGE**: {json.dumps(data_msg, indent=4)}")
+        else:
+            # TODO: need to handle case where there are multiple best routes!!
+            # tie breaker logic
+            pass
+            
         # Exit the function once the message is forwarded
         return
-    
+
+
+    def find_best_route(self, dst):
+        '''
+        This function is responsible for finding the best route to the given
+        destination IP address.
+        Params:
+            @dst: The destination IP address
+        Returns: A list of the best routes to the destination IP address
+        '''
+        # convert destination IP to binary
+        dst_binary = self.converting_to_binary(dst)
+        # initialize variables to store best routes and longest prefix match
+        best_routes = []
+        longest_prefix_match = -1
+        
+        # iterate through forwarding table to get entry and details
+        for entry, details in self.forwarding_table.items():
+            # iterate through the src ip addresses of the entry and their attributes
+            for peer, attributes in details.items():
+                # convert network IP and netmask to binary
+                network_binary = self.converting_to_binary(attributes['network_ip'])
+                netmask_binary = self.converting_to_binary(attributes['netmask'])
+                
+                # convert the network ip and netmask to perform bitwise AND operation
+                mask_result = format(int(network_binary, 2) & int(netmask_binary, 2), '032b')
+                
+                # counter to keep track of matching bits
+                count_matching_bits = 0
+                
+                # iterate through the mask result and destination binary to find matching bits
+                for i in range(min(len(mask_result), len(dst_binary))):
+                    if mask_result[i] == dst_binary[i]:
+                        count_matching_bits += 1
+                    else:
+                        # break if there are no more matching bits
+                        break
+                
+                # TODO: check logic here:
+                # for each peer, check if the count of matching bits is greater than the longest prefix match
+                # if it is, update the longest prefix match and best routes
+                if count_matching_bits > longest_prefix_match:
+                    longest_prefix_match = count_matching_bits
+                    best_routes = [{'peer': peer, 'dst': attributes['network_ip']}]
+                # if the count of matching bits is equal to the longest prefix match, append to best routes
+                elif count_matching_bits == longest_prefix_match:
+                    best_routes.append({'peer': peer, 'dst': attributes['network_ip']})
+        
+        return best_routes
+
+    def handle_no_route(self, src, dst):
+        no_route_msg = {
+            'src': self.our_addr(src),
+            'dst': dst,
+            'type': 'no_route',
+            'msg': {"error": "No route found"}
+        }
+        self.send(src, json.dumps(no_route_msg))
+        print(f"**NO ROUTE TO HOST**: {json.dumps(no_route_msg, indent=4)}")
+
+
 
     def handle_dump(self, msg):
         src = msg['src']  # Source of the dump request
@@ -574,9 +665,6 @@ class Router:
         print(f"**DUMP MESSAGE SENT**: {json.dumps(dump_msg, indent=4)}")
         return
 
-
-    def handle_no_route():
-        pass
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='route packets')
