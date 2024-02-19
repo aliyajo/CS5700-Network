@@ -114,7 +114,7 @@ class Router:
         elif msg_type == 'dump':
             self.handle_dump(msg)
         else:
-            raise ValueError(f'**HANDLE MSG** type error: {msg_type}')
+            raise ValueError(f'Message type error: {msg_type}')
 
     def converting_to_binary(self, address):
         '''
@@ -319,8 +319,7 @@ class Router:
         origin = msg_data['origin']
         selfOrigin = msg_data['selfOrigin']
         relation = self.relations[peer]
-        
-        # TODO: check if this is the correct logic? idk what ASPath is..
+
         # append router's ASN to front of ASPath
         # this is a list of ASNs that the route announcement has traversed
         if self.asn not in ASPath:
@@ -346,69 +345,68 @@ class Router:
                 'relation': relation,
                 'network_ip': network_ip,
             }
-        
+    
          
-        for network, sources in self.forwarding_table.items():
-            # This conditional checks if there are same hops
-            if peer in sources:
-                # If there are same hops, then we can see if can aggregate
-                if network_cidr != network:
-                    matching_in_table = network
-                    # If the two entries can be aggregated  
-                    if self.aggregation(network_cidr, matching_in_table):
-                        # TODO: Figure out how to combine the two entries into one entry
-                        self.aggregate_networks(network_cidr, matching_in_table)
+        # for network, sources in self.forwarding_table.items():
+        #     # This conditional checks if there are same hops
+        #     if peer in sources:
+        #         # If there are same hops, then we can see if can aggregate
+        #         if network_cidr != network:
+        #             matching_in_table = network
+        #             # If the two entries can be aggregated  
+        #             if self.aggregation(network_cidr, matching_in_table):
+        #                 # TODO: Figure out how to combine the two entries into one entry
+        #                 self.aggregate_networks(network_cidr, matching_in_table)
 
                     
         
 
         # formated print for debugging
         print("**FORWARDING TABLE UPDATED**:\n" + json.dumps(self.forwarding_table, indent=3))
+
                                
-     
-        # forward update announcement to all neighbors except source IP
+        # handle forwarding update announcement to all neighbors except source IP
+        self.forward_update_announcement(msg)
+        return
+
+
+    def forward_update_announcement(self, msg):       
+        msg_data = msg['msg']
+        src = msg['src']
+        dst = msg['dst']
+        network_ip = msg_data['network']
+         
         for connection in self.connections:
-            _, neighbor, relation = connection.split("-")
-            if neighbor != msg['src']:
-                # If the update is recieved by peer or provider
-                if relation == "peer" or relation == "prov":
-                    for entry in self.forwarding_table:
-                         # Loop through the src ip addresses of the entry
-                        for source in self.forwarding_table[entry]:
-                            # Then only send a updates to our customers
-                            if self.forwarding_table[entry][source]['relation'] == "cust": 
-                                # create update route announcment to send to non-source neighbors
-                                # message format based on expected test case
-                                update_msg = {
-                                    'msg': {
-                                        'netmask': msg_data['netmask'],
-                                        'ASPath': msg_data['ASPath'],
-                                        'network': network_ip,
-                                    },
-                                    # put our IP address as the source of the announcement to be sent
-                                    'src': self.our_addr(neighbor),
-                                    # destination IP of the announcement, sending to our neighbor
-                                    'dst': neighbor,
-                                    'type': 'update'
-                                }
-                                # send the update announcement
-                                self.send(source, json.dumps(update_msg))
-                # If the update is recieved from a customer
-                elif relation == "cust":
-                    update_msg = {
+            _, cur_neighbor, cur_relation = connection.split("-")
+            
+            if cur_neighbor != src:
+            
+                update_msg = {
                     'msg': {
                         'netmask': msg_data['netmask'],
                         'ASPath': msg_data['ASPath'],
                         'network': network_ip,
                     },
-                    # ./rput our IP address as the source of the announcement to be sent
-                    'src': self.our_addr(neighbor),
-                    # destination IP of the announcement, sending to our neighbor
-                    'dst': neighbor,
+                    # our address as the source of the announcement to be sent
+                    'src': self.our_addr(cur_neighbor),
+                    'dst': cur_neighbor,
                     'type': 'update'
-                }
-                    # send the update announcement
-                    self.send(neighbor, json.dumps(update_msg))
+                }           
+                
+                # Determine forwarding based on the relationship
+                if self.relations[src] == 'cust':
+                    # Forward messages from customers to all neighbors
+                    self.send(cur_neighbor, json.dumps(update_msg))
+                elif cur_relation == 'cust' and self.relations[src] in ['peer', 'prov']:
+                    # Forward messages from peers/providers only to customers
+                    self.send(cur_neighbor, json.dumps(update_msg))
+                elif cur_relation == 'prov' and self.relations[src] == 'peer':
+                    # Forward messages from providers to peers
+                    self.send(cur_neighbor, json.dumps(update_msg))
+                else:
+                    # Do not forward messages from peers/providers to other peers/providers
+                    pass
+            
         return
 
 
@@ -572,8 +570,7 @@ class Router:
                     else:
                         # break if there are no more matching bits
                         break
-                
-                # TODO: check logic here:
+
                 # for each peer, check if the count of matching bits is greater than the longest prefix match
                 # if it is, update the longest prefix match and best routes
                 if count_matching_bits > longest_prefix_match:
