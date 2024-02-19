@@ -27,9 +27,11 @@ class Router:
         print("Router at AS %s starting up" % asn)
         self.asn = asn
         self.connections = connections 
+        self.neighbors = []
         
         for relationship in connections:
             port, neighbor, relation = relationship.split("-")
+            self.neighbors.append(neighbor)
 
             self.sockets[neighbor] = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.sockets[neighbor].bind(('localhost', 0))
@@ -362,7 +364,7 @@ class Router:
         
 
         # formated print for debugging
-        print("**FORWARDING TABLE UPDATED**:\n" + json.dumps(self.forwarding_table, indent=3))
+        print("**FORWARDING TABLE UPDATED**:\n" + json.dumps(self.forwarding_table, indent=2))
 
                                
         # handle forwarding update announcement to all neighbors except source IP
@@ -372,40 +374,60 @@ class Router:
 
     def forward_update_announcement(self, msg):       
         msg_data = msg['msg']
-        src = msg['src']
+        src = msg['src'] # original source of announcement
         dst = msg['dst']
         network_ip = msg_data['network']
          
         for connection in self.connections:
-            _, cur_neighbor, cur_relation = connection.split("-")
+            port, cur_neighbor, cur_relation = connection.split("-")
             
-            if cur_neighbor != src:
+            # skip forwarding to source
+            if cur_neighbor == src:
+                continue
             
-                update_msg = {
-                    'msg': {
-                        'netmask': msg_data['netmask'],
-                        'ASPath': msg_data['ASPath'],
-                        'network': network_ip,
-                    },
-                    # our address as the source of the announcement to be sent
-                    'src': self.our_addr(cur_neighbor),
-                    'dst': cur_neighbor,
-                    'type': 'update'
-                }           
+            # create update message to send
+            update_msg = {
+                'msg': {
+                    'netmask': msg_data['netmask'],
+                    'ASPath': msg_data['ASPath'],
+                    'network': network_ip,
+                },
+                # our address as the source of the announcement to be sent
+                'src': self.our_addr(cur_neighbor),
+                'dst': cur_neighbor,
+                'type': 'update'
+            }
+            
+            # announced from customer, forward to all neighbors
+            if self.relations[src] == 'cust':
+                self.send(cur_neighbor, json.dumps(update_msg)) 
+            # announced from peer/provider, forward to customers only
+            elif self.relations[src] in ['peer', 'prov']:
+                # only send to customers
+                for entry in self.forwarding_table:
+                    for source in self.forwarding_table[entry]:
+                        if self.forwarding_table[entry][source]['relation'] == "cust":
+                            self.send(cur_neighbor, json.dumps(update_msg))
+            # announced from provider, forward to peers
+            
                 
-                # Determine forwarding based on the relationship
-                if self.relations[src] == 'cust':
-                    # Forward messages from customers to all neighbors
-                    self.send(cur_neighbor, json.dumps(update_msg))
-                elif cur_relation == 'cust' and self.relations[src] in ['peer', 'prov']:
-                    # Forward messages from peers/providers only to customers
-                    self.send(cur_neighbor, json.dumps(update_msg))
-                elif cur_relation == 'prov' and self.relations[src] == 'peer':
-                    # Forward messages from providers to peers
-                    self.send(cur_neighbor, json.dumps(update_msg))
-                else:
-                    # Do not forward messages from peers/providers to other peers/providers
-                    pass
+            
+                    
+                
+            
+            # # Determine forwarding based on the relationship
+            # if self.relations[src] == 'cust':
+            #     # Forward messages from customers to all neighbors
+            #     self.send(cur_neighbor, json.dumps(update_msg))
+            # elif cur_relation == 'cust' and self.relations[src] in ['peer', 'prov']:
+            #     # Forward messages from peers/providers only to customers
+            #     self.send(cur_neighbor, json.dumps(update_msg))
+            # elif cur_relation == 'prov' and self.relations[src] == 'peer':
+            #     # Forward messages from providers to peers
+            #     self.send(cur_neighbor, json.dumps(update_msg))
+            # else:
+            #     # Do not forward messages from peers/providers to other peers/providers
+            #     pass
             
         return
 
@@ -466,7 +488,7 @@ class Router:
                                 }
                                 # Print statements for debugging purposes
                                 print(f"**SENDING WITHDRAWAL MESSAGE**: {withdraw_msg}")
-                                print("**FORWARDING TABLE UPDATED AFTER WITHDRAWAL**:\n" + json.dumps(self.forwarding_table, indent=4))
+                                print("**FORWARDING TABLE UPDATED AFTER WITHDRAWAL**:\n" + json.dumps(self.forwarding_table, indent=2))
                                 # send the withdrawal announcement
                                 self.send(neighbor, json.dumps(withdraw_msg))
                 # If the update is recieved from a customer
@@ -481,7 +503,7 @@ class Router:
                     }
                     # Print statements for debugging purposes 
                     print(f"**SENDING WITHDRAWAL MESSAGE**: {withdraw_msg}")
-                    print("**FORWARDING TABLE UPDATED AFTER WITHDRAWAL**:\n" + json.dumps(self.forwarding_table, indent=4))
+                    print("**FORWARDING TABLE UPDATED AFTER WITHDRAWAL**:\n" + json.dumps(self.forwarding_table, indent=2))
                     # send the withdrawal announcement
                     self.send(neighbor, json.dumps(withdraw_msg))
         return
@@ -514,7 +536,7 @@ class Router:
             }
             # Send the update announcement
             self.send(selected_route['peer'], json.dumps(data_msg))
-            print(f"**DATA MESSAGE**: {json.dumps(data_msg, indent=4)}")
+            print(f"**DATA MESSAGE**: {json.dumps(data_msg, indent=2)}")
         
         # case where there is more than one best route
         elif len(best_routes) > 1:
@@ -529,7 +551,7 @@ class Router:
             }
             # Send the update announcement
             self.send(selected_route['peer'], json.dumps(data_msg))
-            print(f"**DATA MESSAGE**: {json.dumps(data_msg, indent=4)}")
+            print(f"**DATA MESSAGE**: {json.dumps(data_msg, indent=2)}")
             
         # Exit the function once the message is forwarded
         return
@@ -692,7 +714,7 @@ class Router:
             'msg': {"error": "No route found"}
         }
         self.send(src, json.dumps(no_route_msg))
-        print(f"**NO ROUTE TO HOST**: {json.dumps(no_route_msg, indent=4)}")
+        print(f"**NO ROUTE TO HOST**: {json.dumps(no_route_msg, indent=2)}")
 
 
 
@@ -733,7 +755,7 @@ class Router:
 
         # Send the routing table dump back to the requester
         self.send(src, json.dumps(dump_msg))
-        print(f"**DUMP MESSAGE SENT**: {json.dumps(dump_msg, indent=4)}")
+        print(f"**DUMP MESSAGE SENT**: {json.dumps(dump_msg, indent=2)}")
         return
 
 
