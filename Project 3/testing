@@ -26,6 +26,24 @@ ip2 = "192.0.0.0/24"
 cidr = ip.split('/')[0] + "/" + str((int(ip.split('/')[1]) - 1))
 print(cidr)
 
+netmask = "255.255.255.255"
+netmask_parts = netmask.split('.')
+netmask_int = [int(part) for part in netmask_parts]
+
+# Decrement each quad of the netmask by one
+for i in range(3, -1, -1):
+    # Decrement the current quad
+    netmask_int[i] -= 1
+    # If the current quad becomes zero, move to the next quad
+    if netmask_int[i] == -1:
+        netmask_int[i] = 0
+    else:
+        break  # Exit the loop if the quad is decremented without becoming zero
+
+netmask = '.'.join(str(part) for part in netmask_int)
+print(netmask)
+
+
 print(compare_ips(ip, ip2))
 
 

@@ -334,7 +334,20 @@ class Router:
                     and self.has_same_attributes(localpref, ASPath, origin, selfOrigin, matching_in_table):
                         # TODO: Figure out how to combine the two entries into one entry
                         network_cidr = self.aggregate_networks(network_cidr, matching_in_table)
-                        network_ip = network_cidr.split('/')[0]
+                        netmask_parts = netmask.split('.')
+                        netmask_int = [int(part) for part in netmask_parts]
+
+                        # Decrement each quad of the netmask by one
+                        for i in range(3, -1, -1):
+                            # Decrement the current quad
+                            netmask_int[i] -= 1
+                            # If the current quad becomes zero, move to the next quad
+                            if netmask_int[i] == -1:
+                                netmask_int[i] = 0
+                            else:
+                                break  # Exit the loop if the quad is decremented without becoming zero
+
+                        netmask = '.'.join(str(part) for part in netmask_int)
                         del self.forwarding_table[matching_in_table]
                         break
                     else:
@@ -371,6 +384,7 @@ class Router:
         # handle forwarding update announcement to all neighbors except source IP
         self.forward_update_announcement(msg)
         return
+
 
 
     def forward_update_announcement(self, msg):       
