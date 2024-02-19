@@ -538,6 +538,7 @@ class Router:
         
         # find best route to dst
         best_routes = self.find_best_route(dst)
+        print(f"**BEST ROUTES**: {best_routes}")
         
         # case where there is no best route
         if not best_routes:
@@ -559,7 +560,17 @@ class Router:
         elif len(best_routes) > 1:
             # TODO: need to handle case where there are multiple best routes!!
             # tie breaker logic
-            pass
+            selected_route = self.handle_tie_breaker(best_routes)
+            # Establishing the data message to be sent
+            data_msg = {
+                'src': self.our_addr(src),
+                'dst': selected_route['dst'],
+                'type': 'data',
+                'msg': msg['msg']
+            }
+            # Send the update announcement
+            self.send(selected_route['peer'], json.dumps(data_msg))
+            print(f"**DATA MESSAGE**: {json.dumps(data_msg, indent=4)}")
             
         # Exit the function once the message is forwarded
         return
@@ -606,12 +617,30 @@ class Router:
                 # if it is, update the longest prefix match and best routes
                 if count_matching_bits > longest_prefix_match:
                     longest_prefix_match = count_matching_bits
-                    best_routes = [{'peer': peer, 'dst': attributes['network_ip']}]
+                    best_routes = [{'peer': peer, 'dst': attributes['network_ip'], 'localpref': attributes['localpref'], 'selfOrigin': attributes['SelfOrigin'], 'ASPath': attributes['ASPath'], 'origin': attributes['origin'], 'network_ip': attributes['network_ip']}]
                 # if the count of matching bits is equal to the longest prefix match, append to best routes
                 elif count_matching_bits == longest_prefix_match:
-                    best_routes.append({'peer': peer, 'dst': attributes['network_ip']})
+                    best_routes.append({'peer': peer, 'dst': attributes['network_ip'], 'localpref': attributes['localpref'], 'selfOrigin': attributes['SelfOrigin'], 'ASPath': attributes['ASPath'], 'origin': attributes['origin'], 'network_ip': attributes['network_ip']})
         
         return best_routes
+
+
+    def handle_tie_breaker(self, best_routes):
+        # break tie for highest localpref
+        highest_localpref = -1
+        route_tie_winner = []
+        for route in best_routes:
+            if route['localpref'] > highest_localpref:
+                highest_localpref = route['localpref']
+                route_tie_winner = [route]
+            if route['localpref'] == highest_localpref:
+                route_tie_winner.append(route)
+        best_routes = route_tie_winner
+        
+        # break tie for selfOrigin
+        
+        return best_routes[0]
+
 
     def handle_no_route(self, src, dst):
         no_route_msg = {
