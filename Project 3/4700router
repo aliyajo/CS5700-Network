@@ -556,7 +556,7 @@ class Router:
             # Send the update announcement
             self.send(selected_route['peer'], json.dumps(data_msg))
             print(f"**DATA MESSAGE**: {json.dumps(data_msg, indent=4)}")
-        else:
+        elif len(best_routes) > 1:
             # TODO: need to handle case where there are multiple best routes!!
             # tie breaker logic
             pass
