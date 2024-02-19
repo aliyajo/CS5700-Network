@@ -347,7 +347,7 @@ class Router:
                 'network_ip': network_ip,
             }
         
-        # TODO: Aggregation logic   
+         
         for network, sources in self.forwarding_table.items():
             # This conditional checks if there are same hops
             if peer in sources:
@@ -356,6 +356,7 @@ class Router:
                     matching_in_table = network
                     # If the two entries can be aggregated  
                     if self.aggregation(network_cidr, matching_in_table):
+                        # TODO: Figure out how to combine the two entries into one entry
                         self.aggregate_networks(network_cidr, matching_in_table)
 
                     
