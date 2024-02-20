@@ -112,7 +112,7 @@ class Router:
         elif msg_type == 'withdraw':
             self.handle_withdraw(msg)
         elif msg_type == 'data':
-            self.handle_data(msg)
+            self.handle_data(msg, srcif)
         elif msg_type == 'dump':
             self.handle_dump(msg)
         else:
@@ -381,8 +381,6 @@ class Router:
                 'relation': relation,
                 'network_ip': network_ip,
             }
-    
-
 
         # formated print for debugging
         print("**FORWARDING TABLE UPDATED**:\n" + json.dumps(self.forwarding_table, indent=2))
@@ -391,7 +389,6 @@ class Router:
         # handle forwarding update announcement to all neighbors except source IP
         self.forward_update_announcement(msg)
         return
-
 
 
     def forward_update_announcement(self, msg):       
@@ -427,26 +424,6 @@ class Router:
             elif self.relations[src] in ['peer', 'prov']:
                 if cur_relation == 'cust':
                     self.send(cur_neighbor, json.dumps(update_msg))
-            
-                
-            
-                    
-                
-            
-            # # Determine forwarding based on the relationship
-            # if self.relations[src] == 'cust':
-            #     # Forward messages from customers to all neighbors
-            #     self.send(cur_neighbor, json.dumps(update_msg))
-            # elif cur_relation == 'cust' and self.relations[src] in ['peer', 'prov']:
-            #     # Forward messages from peers/providers only to customers
-            #     self.send(cur_neighbor, json.dumps(update_msg))
-            # elif cur_relation == 'prov' and self.relations[src] == 'peer':
-            #     # Forward messages from providers to peers
-            #     self.send(cur_neighbor, json.dumps(update_msg))
-            # else:
-            #     # Do not forward messages from peers/providers to other peers/providers
-            #     pass
-            
         return
 
 
@@ -527,14 +504,14 @@ class Router:
         return
     
 
-    def handle_data(self, msg):
+    def handle_data(self, msg, srcif):
         # extract dst and src from data message
         dst = msg['dst']
         src = msg['src']
         
         # find best route to dst
         best_routes = self.find_best_route(dst)
-        print(f"**BEST ROUTES**: {best_routes}")
+        # print(f"**BEST ROUTES**: {best_routes}")
         
         # case where there is no best route
         if not best_routes:
@@ -546,34 +523,28 @@ class Router:
         elif len(best_routes) >= 1:
             # tie breaker logic
             selected_route = self.handle_tie_breaker(best_routes)
-            # create the data message to be sent
-            data_msg = {
-                'src': self.our_addr(src),
-                'dst': selected_route['dst'],
-                'type': 'data',
-                'msg': msg['msg']
-            }
-            # send the data
-            self.send(selected_route['peer'], json.dumps(data_msg))
-            print(f"**DATA MESSAGE**: {json.dumps(data_msg, indent=2)}")
-        else:
-            print(f"**INVALID RELATION**: {msg}")
+            
+            # check relation of source of message to selected route
+            src_relation = self.relations[srcif] if srcif in self.relations else None
+            
+            if src_relation == 'cust' or self.relations[selected_route['peer']] == 'cust':
+            
+                # create the data message to be sent
+                data_msg = {
+                    'src': self.our_addr(src),
+                    'dst': selected_route['dst'],
+                    'type': 'data',
+                    'msg': msg['msg']
+                }
+                # send the data
+                self.send(selected_route['peer'], json.dumps(data_msg))
+                # print(f"**DATA MESSAGE**: {json.dumps(data_msg, indent=2)}")
+            
+            else:
+                self.handle_no_route(src, dst)
             
         # Exit the function once the message is forwarded
         return
-    
-    def check_valid_relation(self, msg):
-        src_router = msg['src']
-        dst_router = msg['dst']
-        
-        # if src or dst routers are cust, forward data
-        if self.relations[src_router] == 'cust' or self.relations[dst_router] == 'cust':
-            return True
-        # if src or dst routers are peer/prov, who are sending to peer/prov,
-        # DONT forward data
-        elif self.relations[src_router] in ['peer', 'prov'] and self.relations[dst_router] in ['peer', 'prov']:
-            return False
-        
 
 
     def find_best_route(self, dst):
