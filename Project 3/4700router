@@ -686,6 +686,7 @@ class Router:
             @src: The source IP address
             @dst: The destination IP address
         '''
+        # create no route message to send
         no_route_msg = {
             'src': self.our_addr(src),
             'dst': dst,
