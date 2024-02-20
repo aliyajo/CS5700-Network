@@ -340,7 +340,7 @@ class Router:
                 # If there are same hops, then we can see if can aggregate
                 if network_cidr != network:
                     matching_in_table = network
-                    if self.has_same_attributes(localpref, ASPath, origin, selfOrigin, matching_in_table) and IPConfig.compare_prefixes(network_cidr, matching_in_table) == True:
+                    if self.has_same_attributes(localpref, ASPath, origin, selfOrigin, matching_in_table):
                         CIDR_prefix = IPConfig.are_cidr_addresses_adjacent(network_cidr, matching_in_table)
                         new_network = IPConfig.compare_ips(network_cidr, matching_in_table).split('/')[0]
                         netmask = IPConfig.cidr_to_subnet_mask(CIDR_prefix)
