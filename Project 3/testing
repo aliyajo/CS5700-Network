@@ -1,64 +1,54 @@
+import json
+
+
+forwarding_table = {}
 def converting_to_binary(address):
-    '''
-    This function is responsible for converting the given IP address
-    into its corresponding binary notation.
-    Params:
-        @address: The IP address to be converted
-    Returns: The converted IP address in binary notation
-    '''
-    # Split the address into its quads
-    subnet_split = address.split('.')
-    converted_address = ""
-    # Iterate through the quads
-    for i in subnet_split:
-        binary = ""
-        # Convert the quad into an integer
-        decimal = int(i)
-        # While the decimal is not zero
-        while decimal > 0:
-            # Convert the decimal into binary
-            binary = str(decimal % 2) + binary
-            decimal = decimal // 2
-        # If the binary number is less than 8 bits long, add leading zeros
-        binary = binary.zfill(8)
-        converted_address += str(binary)
-    # Return the converted subnet
-    return converted_address
-
-def are_cidr_addresses_adjacent(network_cidr, matching_in_table ):
         '''
-        This function is responsible for checking if the given CIDR addresses are adjacent.
+        This function is responsible for converting the given IP address
+        into its corresponding binary notation.
+        Params:
+            @address: The IP address to be converted
+        Returns: The converted IP address in binary notation
         '''
-        network_cidr = network_cidr.split('/')[0]
-        matching_in_table = matching_in_table.split('/')[0]
-        prefix_with_masking_new_network_binary = converting_to_binary(network_cidr)
-        prefix_with_masking_network_binary = converting_to_binary(matching_in_table)
+        # Split the address into its quads
+        subnet_split = address.split('.')
+        converted_address = ""
+        # Iterate through the quads
+        for i in subnet_split:
+            binary = ""
+            # Convert the quad into an integer
+            decimal = int(i)
+            # While the decimal is not zero
+            while decimal > 0:
+                # Convert the decimal into binary
+                binary = str(decimal % 2) + binary
+                decimal = decimal // 2
+            # If the binary number is less than 8 bits long, add leading zeros
+            binary = binary.zfill(8)
+            converted_address += str(binary)
+        # Return the converted subnet
+        return converted_address
+    
 
-        matching_bits = 0
-        for bit1, bit2 in zip(prefix_with_masking_new_network_binary, prefix_with_masking_network_binary):
-            if bit1 != bit2:
-                break
-            matching_bits += 1
-
-        return matching_bits
-
-def compare_ips(ip1, ip2):
-        ip1_address = ip1.split('/')[0]
-        ip2_address = ip2.split('/')[0]
-        # Split the IP addresses into their components
-        ip1_parts = ip1_address.split('.')
-        ip2_parts = ip2_address.split('.')
-        
-        # Convert each part of the IP address to integers
-        ip1_int = [int(part) for part in ip1_parts]
-        ip2_int = [int(part) for part in ip2_parts]
-        
-        # Compare the numerical values of the IP addresses
-        for i in range(4):
-            if ip1_int[i] > ip2_int[i]:
-                return ip2
-            elif ip1_int[i] < ip2_int[i]:
-                return ip1
+def cidr_to_subnet_mask(cidr):
+        '''
+        This functtion for converting given CIDR suffix into the appropriate netmask
+        Params:
+            @cidr: The CIDR suffix
+        Returns: The subnet mask
+        '''
+        # Check if the CIDR suffix is valid
+        if not 0 <= cidr <= 32:
+            raise ValueError("Prefix length must be between 0 and 32")
+        # Calculate the subnet mask
+        mask = 0xFFFFFFFF ^ (1 << (32 - cidr)) - 1
+        # Convert the mask to dotted-decimal notation
+        subnet_mask = []
+        for i in range(0, 32, 8):
+            subnet_mask.append(str((mask >> i) & 0xFF))
+        # Return the subnet mask
+        return ".".join(subnet_mask[::-1])
+    
 
 def converting_to_cidr(subnet_mask, ip_address):
         '''
@@ -87,50 +77,328 @@ def converting_to_cidr(subnet_mask, ip_address):
             CIDR_address = ip_address + "/" + str(consecutive_ones)
             # Return the CIDR address
             return CIDR_address
+    
 
-def aggregate_networks(entry1, entry2, netmask):
+def compare_ips(ip1, ip2):
         '''
-        This function is responsible for aggregating the given entries.
+        This function is responsible for comparing the given IP addresses.
         Params:
-            @entry1: The first entry to be aggregated
-            @entry2: The second entry to be aggregated
+            @ip1: The first IP address
+            @ip2: The second IP address
+        Returns: The IP address that is smaller
         '''
-        # TODO: Figure out how to combine the two entries into one entry    
-        smaller_ip = compare_ips(entry1, entry2).split('/')[0]
+        # Split the IP addresses into their components
+        ip1_address = ip1.split('/')[0]
+        ip2_address = ip2.split('/')[0]
+        # Split the IP addresses into quad components
+        ip1_parts = ip1_address.split('.')
+        ip2_parts = ip2_address.split('.')
+        # Convert each part of the IP address to integers
+        ip1_int = [int(part) for part in ip1_parts]
+        ip2_int = [int(part) for part in ip2_parts]
+        # Compare the numerical values of the IP addresses
+        for i in range(4):
+            if ip1_int[i] > ip2_int[i]:
+                # Return the smallest ip address
+                return ip2
+            elif ip1_int[i] < ip2_int[i]:
+                # Return the smallest ip address
+                return ip1
         
-        combined_entry = converting_to_cidr(netmask, smaller_ip)
-        print(f"**COMBINED ENTRY**: {combined_entry}")
-        return combined_entry, netmask
 
-def cidr_to_subnet_mask(cidr):
-    if not 0 <= cidr <= 32:
-        raise ValueError("Prefix length must be between 0 and 32")
+def are_cidr_addresses_adjacent(network_cidr, matching_in_table ):
+        '''
+        This function is responsible for checking if the given CIDR addresses are adjacent.
+        Params:
+            @network_cidr: The first CIDR address
+            @matching_in_table: The second CIDR address
+        Returns: The number of matching bits if the CIDR addresses are adjacent
+        '''
+        # Split the CIDR addresses into their components
+        network_cidr = network_cidr.split('/')[0]
+        matching_in_table = matching_in_table.split('/')[0]
+        # Convert the CIDR addresses into binary notation
+        prefix_with_masking_new_network_binary = converting_to_binary(network_cidr)
+        prefix_with_masking_network_binary = converting_to_binary(matching_in_table)
+        # Count the number of matching bits
+        matching_bits = 0
+        for bit1, bit2 in zip(prefix_with_masking_new_network_binary, prefix_with_masking_network_binary):
+            if bit1 != bit2:
+                break
+            matching_bits += 1
+        # Return the number of matching bits
+        return matching_bits
 
-    # Calculate the subnet mask
-    mask = 0xFFFFFFFF ^ (1 << (32 - cidr)) - 1
+def has_same_attributes(localpref, ASPath, origin, selfOrigin, matching_in_table):
+        """
+        Test function to check if the attributes of the announcement are the same as the attributes of the entry in the forwarding table
+        Params:
+            @localpref: The local preference of the announcement
+            @ASPath: The ASPath of the announcement
+            @origin: The origin of the announcement
+            @selfOrigin: The selfOrigin of the announcement
+            @matching_in_table: The entry in the forwarding table
+        Returns: True if the attributes are the same, False otherwise
+        """
+        # Iterate through the sources of the entry in the forwarding table
+        for sources in forwarding_table[matching_in_table]:
+            for attributes in forwarding_table[matching_in_table][sources]:
+                # If the localpref, ASPath, origin, and selfOrigin are the same
+                if forwarding_table[matching_in_table][sources]['localpref'] == localpref \
+                and forwarding_table[matching_in_table][sources]['ASPath'] == ASPath \
+                and forwarding_table[matching_in_table][sources]['origin'] == origin \
+                and forwarding_table[matching_in_table][sources]['SelfOrigin'] == selfOrigin:
+                    return True
+                else:
+                    return False
 
-    # Convert the mask to dotted-decimal notation
-    subnet_mask = []
-    for i in range(0, 32, 8):
-        subnet_mask.append(str((mask >> i) & 0xFF))
+def reconfigure_forwarding_table(cache):
+    for entry in cache:
+        if entry["type"] == "update":
+            src = entry["src"]
+            dst = entry["dst"]
+            msg_data = entry["msg"]
+            network_ip = msg_data["network"]
+            network_cidr = converting_to_cidr(msg_data["netmask"], network_ip)
+            netmask = msg_data["netmask"]
+            localpref = msg_data["localpref"]
+            ASPath = msg_data["ASPath"]
+            origin = msg_data["origin"]
+            selfOrigin = msg_data["selfOrigin"]
+            
+            # Check if the network CIDR is already in the forwarding table
+            if network_cidr in forwarding_table:
+                # Check if the source is already in the forwarding table for the network CIDR
+                if src in forwarding_table[network_cidr]:
+                    # Check if the attributes of the entry match the existing entry in the forwarding table
+                    if has_same_attributes(localpref, ASPath, origin, selfOrigin, network_cidr):
+                        # Update the existing entry in the forwarding table
+                        forwarding_table[network_cidr][src] = {
+                            "netmask": netmask,
+                            "dst": dst,
+                            "ASPath": ASPath,
+                            "localpref": localpref,
+                            "origin": origin,
+                            "selfOrigin": selfOrigin,
+                            "network_ip": network_ip,
+                        }
+                    else:
+                        # The attributes do not match, continue to the next entry
+                        continue
+                else:
+                    # Add a new source entry to the existing network CIDR entry in the forwarding table
+                    forwarding_table[network_cidr][src] = {
+                        "netmask": netmask,
+                        "dst": dst,
+                        "ASPath": ASPath,
+                        "localpref": localpref,
+                        "origin": origin,
+                        "selfOrigin": selfOrigin,
+                        "network_ip": network_ip,
+                    }
+            else:
+                # Add a new network CIDR entry to the forwarding table
+                forwarding_table[network_cidr] = {
+                    src: {
+                        "netmask": netmask,
+                        "dst": dst,
+                        "ASPath": ASPath,
+                        "localpref": localpref,
+                        "origin": origin,
+                        "selfOrigin": selfOrigin,
+                        "network_ip": network_ip,
+                    }
+                }
+        # elif entry["type"] == "withdraw":
+        #     src = entry["src"]
+        #     msg_data = entry["msg"]
+        #     for withdraw_entry in msg_data:
+        #         network_ip = withdraw_entry["network"]
+        #         network_cidr = converting_to_cidr(withdraw_entry["netmask"], network_ip)
+        #         # Check if the network CIDR is in the forwarding table
+        #         if network_cidr in forwarding_table:
+        #             # Check if the source is in the forwarding table for the network CIDR
+        #             if src in forwarding_table[network_cidr]:
+        #                 # Remove the source entry from the network CIDR entry in the forwarding table
+        #                 del forwarding_table[network_cidr][src]
+        #                 # Check if there are no more source entries for the network CIDR
+        #                 if len(forwarding_table[network_cidr]) == 0:
+        #                     # Remove the network CIDR entry from the forwarding table
+        #                     del forwarding_table[network_cidr]
+    
+    # Print the updated forwarding table for debugging
+    print(json.dumps(forwarding_table, indent=4))
+        #     netmask = msg_data['netmask']
+        #     localpref = msg_data['localpref']
+        #     ASPath = msg_data['ASPath']
+        #     origin = msg_data['origin']
+        #     selfOrigin = msg_data['selfOrigin']
+        #     dst = dst
+        
+        
 
-    return ".".join(subnet_mask[::-1])
+        # # Iterate through the already existing entries in the forwarding table
+        # for network, sources in forwarding_table.items():
+        #     if src in sources:
+        #         if network_cidr != network:
+        #             matching_in_table = network
+        #             if has_same_attributes(localpref, ASPath, origin, selfOrigin, matching_in_table):
+        #                 CIDR_prefix = are_cidr_addresses_adjacent(network_cidr, matching_in_table)
+        #                 new_network = compare_ips(network_cidr, matching_in_table).split('/')[0]
+        #                 netmask = cidr_to_subnet_mask(CIDR_prefix)
+        #                 network_cidr = converting_to_cidr(CIDR_prefix, new_network)
+        #                 del forwarding_table[matching_in_table]
+        #                 break
+        #             else:
+        #                 continue
+        #         else:
+        #             break
+        #     else:
+        #         break
+
+        # if network_cidr not in forwarding_table:
+        #     # FIRST LAYER
+        #     forwarding_table[network_cidr] = {}
+        
+        # # if peer/src isnt in the paths of the forwarding table, add it, and
+        # # update the forwarding table
+        # if src not in forwarding_table[network_cidr]:
+        #     # SECOND LAYER
+        #     forwarding_table[network_cidr][src] = {
+        #         'netmask': netmask,
+        #         'dst': dst,
+        #         'ASPath': ASPath,
+        #         'localpref': localpref,
+        #         'origin': origin,
+        #         'SelfOrigin': selfOrigin,
+        #         'network_ip': network_ip,
+        #     }
+
+        # # Print for debugging
+        # print(json.dumps(forwarding_table, indent=4))
 
 def main():
-     # Two different entries that we are comparing
-     network1 = "192.168.0.0/23"
-     network2 = "192.168.2.0/23"
-     netmask = "255.255.254.0"
-     CIDR_prefix= are_cidr_addresses_adjacent(network1, network2)
-     print(CIDR_prefix)
-     # New Network
-     new_network = compare_ips(network1, network2).split('/')[0]
-     print(new_network)
-     # Figure out CIDR notation
-     netmask = cidr_to_subnet_mask(CIDR_prefix)
-     print(converting_to_cidr(netmask, new_network))
-     
+    cache = [
+        {
+            "type": "update",
+            "src": "192.168.0.2",
+            "dst": "192.168.0.1",
+            "msg": {
+                "network": "192.168.0.0",
+                "netmask": "255.255.255.0",
+                "localpref": 100,
+                "ASPath": [
+                    14,
+                    1
+                ],
+                "origin": "EGP",
+                "selfOrigin": True
+            }
+        },
+        {
+            "type": "update",
+            "src": "192.168.0.2",
+            "dst": "192.168.0.1",
+            "msg": {
+                "network": "192.168.1.0",
+                "netmask": "255.255.255.0",
+                "localpref": 100,
+                "ASPath": [
+                    14,
+                    1
+                ],
+                "origin": "EGP",
+                "selfOrigin": True
+            }
+        },
+        {
+            "type": "update",
+            "src": "192.168.0.2",
+            "dst": "192.168.0.1",
+            "msg": {
+                "network": "192.168.2.0",
+                "netmask": "255.255.255.0",
+                "localpref": 100,
+                "ASPath": [
+                    14,
+                    1
+                ],
+                "origin": "EGP",
+                "selfOrigin": True
+            }
+        },
+                {
+            "type": "update",
+            "src": "192.168.0.2",
+            "dst": "192.168.0.1",
+            "msg": {
+                "network": "192.168.3.0",
+                "netmask": "255.255.255.0",
+                "localpref": 100,
+                "ASPath": [
+                    14,
+                    1
+                ],
+                "origin": "EGP",
+                "selfOrigin": True
+            }
+        },
+        {
+            "type": "update",
+            "src": "172.168.0.2",
+            "dst": "172.168.0.1",
+            "msg": {
+                "network": "172.169.0.0",
+                "netmask": "255.255.0.0",
+                "localpref": 100,
+                "ASPath": [
+                    14,
+                    2
+                ],
+                "origin": "EGP",
+                "selfOrigin": True
+            }
+        },
+        {
+            "type": "withdraw",
+            "src": "192.168.0.2",
+            "dst": "192.168.0.1",
+            "msg": [
+                {
+                    "network": "192.168.2.0",
+                    "netmask": "255.255.255.0"
+                }
+            ]
+        },
+        {
+            "type": "withdraw",
+            "src": "192.168.0.2",
+            "dst": "192.168.0.1",
+            "msg": [
+                {
+                    "network": "192.168.0.0",
+                    "netmask": "255.255.255.0"
+                }
+            ]
+        }
+    ]
+    network = []
+    netmask = []
+    for i in cache:
+        if i['type'] == 'withdraw':
+            src = i['src']
+            for message in i['msg']:
+                network.append(message['network'])
+                netmask.append(message['netmask'])
+            # print(src, network, netmask)
+    for i in cache:
+        if i['type'] == 'update':
+             if i['src'] == src:
+                if i['msg']['network'] in network and i['msg']['netmask'] in netmask:
+                    cache.remove(i)
+    print(len(cache))
 
-     # print(network_mask)
+    reconfigure_forwarding_table(cache)
+    
 if __name__ == "__main__":
     main()

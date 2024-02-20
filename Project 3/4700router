@@ -143,6 +143,7 @@ class Router:
     forwarding_table = {}
     # List to maintain the cache of announcements recieved by the router
     announcement_cache = []
+    create_new_table = False
 
     def __init__(self, asn, connections):
         '''
@@ -327,6 +328,7 @@ class Router:
                     break
             else:
                 break
+        
         # if the network IP in the first layer of the dict, not in forwarding
         # table, add it along with paths of announcements
         if network_cidr not in self.forwarding_table:
@@ -351,7 +353,6 @@ class Router:
         # formated print for debugging
         print("**FORWARDING TABLE UPDATED**:\n" + json.dumps(self.forwarding_table, indent=2))
 
-        print(f"**ANNOUNCEMENT CACHE**: {self.announcement_cache}")  
         # handle forwarding update announcement to all neighbors except source IP
         self.forward_update_announcement(msg)
         return
@@ -397,29 +398,95 @@ class Router:
                     self.send(cur_neighbor, json.dumps(update_msg))
         return
 
+    def reconfigure_forwarding_table(self, announcement_cache):
+        '''
+        This function is responsible for reconfiguring the forwarding table.
+        Params:
+            @announcement_cache: The announcement cache
+        '''
+        self.forwarding_table = {}
+        print(f"**RECONFIGURING FORWARDING TABLE**: {json.dumps(announcement_cache, indent=2)}")
+        for entry in self.announcement_cache:
+            if entry['type'] == 'update':
+                msg_data = entry['msg']
+                dst = entry['dst']
+                peer = entry['src']
+                network_ip = msg_data['network']             
+                netmask = msg_data['netmask']
+                localpref = msg_data['localpref']
+                ASPath = msg_data['ASPath']
+                origin = msg_data['origin']
+                selfOrigin = msg_data['selfOrigin']
+                relation = self.relations[peer]
+                network_cidr = IPConfig.converting_to_cidr(netmask, network_ip)
+                
+                if self.asn not in ASPath:
+                    ASPath.insert(0, self.asn)
+                
+
+                if network_cidr not in self.forwarding_table:
+                    # FIRST LAYER
+                    self.forwarding_table[network_cidr] = {}
+                
+                # if peer/src isnt in the paths of the forwarding table, add it, and
+                # update the forwarding table
+                if peer not in self.forwarding_table[network_cidr]:
+                    # SECOND LAYER
+                    self.forwarding_table[network_cidr][peer] = {
+                        'netmask': netmask,
+                        'dst': dst,
+                        'ASPath': ASPath,
+                        'localpref': localpref,
+                        'origin': origin,
+                        'SelfOrigin': selfOrigin,
+                        'relation': relation,
+                        'network_ip': network_ip,
+                    }
+
+                # This aggregation logic should not be here. It should be upwards more since
+                # it actively changes the variables being put into the forwarding table
+                                # Aggregation logic
+                for existing_network, sources in self.forwarding_table.items():
+                    print(f"**EXISTING NETWORK**: {existing_network}")
+                    print(f"**SOURCES**: {sources}")
+                    if peer in sources:
+                        if network_cidr != existing_network:
+                            matching_in_table = existing_network
+                            if self.has_same_attributes(localpref, ASPath, origin, selfOrigin, matching_in_table):
+                                CIDR_prefix = IPConfig.are_cidr_addresses_adjacent(network_cidr, matching_in_table)
+                                new_network = IPConfig.compare_ips(network_cidr, matching_in_table).split('/')[0]
+                                netmask = IPConfig.cidr_to_subnet_mask(CIDR_prefix)
+                                network_cidr = IPConfig.converting_to_cidr(CIDR_prefix, new_network)
+                                del self.forwarding_table[matching_in_table]
+                                break
+                        else:
+                            pass
+
+        return
+
+            
 
     def handle_withdraw(self, msg):
         '''
         This function is for handling when there are route withdrawal messages.
         This is the case when a neighboring router may need to withdraw an announcement.
-        This function in response to recieving a withdrawal message is to:
-            1. Save copy of the revocation/cancellation of a statement
-            2. Remove the dead entry from the forwarding table
-            3. The copy that was saved, send this to other neighboring routes
         Params:
             @msg: The withdrawal message recieved 
         '''
+        print(f"**WITHDRAWAL MESSAGE**: {msg}")
         # Save a copy of this revocation
         self.announcement_cache.append(msg)
         # Extracting the source of the withdrawal message
         src = msg['src']
         # From the withdrawal message, extract the network and netmask
         network_removal, netmask_removal = [(i['network'], i['netmask']) for i in msg['msg']][0]
+        print(f"**netmask_removal**: {netmask_removal}")
+        print(f"**network_removal**: {network_removal}")
         # Iterate through the forwarding table
         for entry in self.forwarding_table:
             ip_address = entry.split('/')[0]
             # If the network is in the forwarding table
-            if ip_address == network_removal:
+            if ip_address in network_removal:
                 # Iterate through the paths of the forwarding table
                 for j in self.forwarding_table[entry]:
                     # If the path is the same as the source of the withdrawal message
@@ -430,7 +497,23 @@ class Router:
                             print(f"**WITHDRAWAL**: {self.forwarding_table[entry][j]}")
                             del self.forwarding_table[entry][j]
                             break
-        
+            else:
+                    for i in self.announcement_cache:
+                        if i['type'] == 'update':
+                            if i['src'] == src:
+                                if i['msg']['network'] in network_removal and i['msg']['netmask'] in netmask_removal:
+                                    print(f"**UPDATE**: {i}")
+                                    print(f"**REMOVING**: {i}")
+                                    self.announcement_cache.remove(i)
+                                    self.create_new_table = True
+                                    print(f"**WITHDRAWAL ANNOUNCEMENT CACHE**: {json.dumps(self.announcement_cache, indent=2)}")
+                                if self.create_new_table:
+                                    self.reconfigure_forwarding_table(self.announcement_cache)
+                                    self.create_new_table = False
+                                    break
+                            else:
+                                break
+            
         # Sending copies to other neighbors
         for connection in self.connections:
             _, neighbor, relation = connection.split("-")
@@ -439,7 +522,7 @@ class Router:
                 if relation == "peer" or relation == "prov":
                     # Iterate through the first layer keys of the forwarding table
                     for entry in self.forwarding_table:
-                         # Loop through the src ip addresses of the entry
+                        # Loop through the src ip addresses of the entry
                         for source in self.forwarding_table[entry]:
                             # Then only send a updates to our customers
                             if self.forwarding_table[entry][source]['relation'] == "cust": 
@@ -454,7 +537,7 @@ class Router:
                                 }
                                 # Print statements for debugging purposes
                                 print(f"**SENDING WITHDRAWAL MESSAGE**: {withdraw_msg}")
-                                print("**FORWARDING TABLE UPDATED AFTER WITHDRAWAL**:\n" + json.dumps(self.forwarding_table, indent=2))
+                                print("**FORWARDING TABLE UPDATED AFTER WITHDRAWAL**:\n" + json.dumps(self.forwarding_table, indent=1))
                                 # send the withdrawal announcement
                                 self.send(neighbor, json.dumps(withdraw_msg))
                 # If the update is recieved from a customer
@@ -469,12 +552,12 @@ class Router:
                     }
                     # Print statements for debugging purposes 
                     print(f"**SENDING WITHDRAWAL MESSAGE**: {withdraw_msg}")
-                    print("**FORWARDING TABLE UPDATED AFTER WITHDRAWAL**:\n" + json.dumps(self.forwarding_table, indent=2))
+                    print("**FORWARDING TABLE UPDATED AFTER WITHDRAWAL**:\n" + json.dumps(self.forwarding_table, indent=1))
                     # send the withdrawal announcement
                     self.send(neighbor, json.dumps(withdraw_msg))
         return
     
-
+    
     def handle_data(self, msg, srcif):
         '''
         This function is responsible for handling the data message recieved from the neighboring routers.
@@ -707,7 +790,6 @@ class Router:
 
         # Prepare a list to hold all the route entries
         table_entries = []
-        print(f"*FORWARDING TABLE DUMP*: {json.dumps(self.forwarding_table, indent=3)}")
         # Iterate over each network in the forwarding table
         for network_cidr, peers in self.forwarding_table.items():
             for peer, details in peers.items():
@@ -728,6 +810,8 @@ class Router:
                     'selfOrigin': details['SelfOrigin'],  # Whether the route was originated by this router
                 }
                 table_entries.append(entry)
+        
+
 
         # Create the dump message to send back
         dump_msg = {
