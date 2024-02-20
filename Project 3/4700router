@@ -1,7 +1,139 @@
 #!/usr/bin/env -S python3 -u
 
-import argparse, socket, time, json, select, struct, sys, math
+import argparse, socket, json, select
+class IPConfig:
+    '''
+    This class is responsible for handling all the IP address configurations. This involves CIDR configuration as well. 
+    '''
 
+    @staticmethod 
+    def converting_to_binary(address):
+        '''
+        This function is responsible for converting the given IP address
+        into its corresponding binary notation.
+        Params:
+            @address: The IP address to be converted
+        Returns: The converted IP address in binary notation
+        '''
+        # Split the address into its quads
+        subnet_split = address.split('.')
+        converted_address = ""
+        # Iterate through the quads
+        for i in subnet_split:
+            binary = ""
+            # Convert the quad into an integer
+            decimal = int(i)
+            # While the decimal is not zero
+            while decimal > 0:
+                # Convert the decimal into binary
+                binary = str(decimal % 2) + binary
+                decimal = decimal // 2
+            # If the binary number is less than 8 bits long, add leading zeros
+            binary = binary.zfill(8)
+            converted_address += str(binary)
+        # Return the converted subnet
+        return converted_address
+    
+    @staticmethod
+    def cidr_to_subnet_mask(cidr):
+        '''
+        This functtion for converting given CIDR suffix into the appropriate netmask
+        Params:
+            @cidr: The CIDR suffix
+        Returns: The subnet mask
+        '''
+        # Check if the CIDR suffix is valid
+        if not 0 <= cidr <= 32:
+            raise ValueError("Prefix length must be between 0 and 32")
+        # Calculate the subnet mask
+        mask = 0xFFFFFFFF ^ (1 << (32 - cidr)) - 1
+        # Convert the mask to dotted-decimal notation
+        subnet_mask = []
+        for i in range(0, 32, 8):
+            subnet_mask.append(str((mask >> i) & 0xFF))
+        # Return the subnet mask
+        return ".".join(subnet_mask[::-1])
+    
+    @staticmethod
+    def converting_to_cidr(subnet_mask, ip_address):
+        '''
+        This function is responsible for converting given ip address, and subnet mask into
+        their corresponding CIDR notation.
+        Params:
+            @subnet_mask: The subnet mask of the ip address
+            @ip_address: The network IP address
+        Returns: The formatted CIDR address
+        '''
+        # Check if subnet mask in netmask notation
+        if isinstance(subnet_mask, int):
+            # If the subnet mask is in CIDR notation, return the CIDR address
+            return ip_address + "/" + str(subnet_mask)
+        elif '.' in subnet_mask:
+            # Figure out subnet mask CIDR prefix
+            converted_subnet = IPConfig.converting_to_binary(subnet_mask)
+            consecutive_ones = 0
+            # Count the number of consecutive ones in the subnet mask
+            for i in converted_subnet:
+                if i == '1':
+                    consecutive_ones += 1
+                else:
+                    break 
+            # Form the CIDR address
+            CIDR_address = ip_address + "/" + str(consecutive_ones)
+            # Return the CIDR address
+            return CIDR_address
+    
+    @staticmethod
+    def compare_ips(ip1, ip2):
+        '''
+        This function is responsible for comparing the given IP addresses.
+        Params:
+            @ip1: The first IP address
+            @ip2: The second IP address
+        Returns: The IP address that is smaller
+        '''
+        # Split the IP addresses into their components
+        ip1_address = ip1.split('/')[0]
+        ip2_address = ip2.split('/')[0]
+        # Split the IP addresses into quad components
+        ip1_parts = ip1_address.split('.')
+        ip2_parts = ip2_address.split('.')
+        # Convert each part of the IP address to integers
+        ip1_int = [int(part) for part in ip1_parts]
+        ip2_int = [int(part) for part in ip2_parts]
+        # Compare the numerical values of the IP addresses
+        for i in range(4):
+            if ip1_int[i] > ip2_int[i]:
+                # Return the smallest ip address
+                return ip2
+            elif ip1_int[i] < ip2_int[i]:
+                # Return the smallest ip address
+                return ip1
+        
+    @staticmethod
+    def are_cidr_addresses_adjacent(network_cidr, matching_in_table ):
+        '''
+        This function is responsible for checking if the given CIDR addresses are adjacent.
+        Params:
+            @network_cidr: The first CIDR address
+            @matching_in_table: The second CIDR address
+        Returns: The number of matching bits if the CIDR addresses are adjacent
+        '''
+        # Split the CIDR addresses into their components
+        network_cidr = network_cidr.split('/')[0]
+        matching_in_table = matching_in_table.split('/')[0]
+        # Convert the CIDR addresses into binary notation
+        prefix_with_masking_new_network_binary = IPConfig.converting_to_binary(network_cidr)
+        prefix_with_masking_network_binary = IPConfig.converting_to_binary(matching_in_table)
+        # Count the number of matching bits
+        matching_bits = 0
+        for bit1, bit2 in zip(prefix_with_masking_new_network_binary, prefix_with_masking_network_binary):
+            if bit1 != bit2:
+                break
+            matching_bits += 1
+        # Return the number of matching bits
+        return matching_bits
+    
 class Router:
 
     relations = {}
@@ -117,169 +249,20 @@ class Router:
             self.handle_dump(msg)
         else:
             raise ValueError(f'Message type error: {msg_type}')
-
-    def converting_to_binary(self, address):
-        '''
-        This function is responsible for converting the given IP address
-        into its corresponding binary notation.
-        Params:
-            @address: The IP address to be converted
-        Returns: The converted IP address in binary notation
-        '''
-        # Split the address into its quads
-        subnet_split = address.split('.')
-        converted_address = ""
-        # Iterate through the quads
-        for i in subnet_split:
-            binary = ""
-            # Convert the quad into an integer
-            decimal = int(i)
-            # While the decimal is not zero
-            while decimal > 0:
-                # Convert the decimal into binary
-                binary = str(decimal % 2) + binary
-                decimal = decimal // 2
-            # If the binary number is less than 8 bits long, add leading zeros
-            binary = binary.zfill(8)
-            converted_address += str(binary)
-        # Return the converted subnet
-        return converted_address
-    
-    def cidr_to_subnet_mask(self, cidr):
-        if not 0 <= cidr <= 32:
-            raise ValueError("Prefix length must be between 0 and 32")
-
-        # Calculate the subnet mask
-        mask = 0xFFFFFFFF ^ (1 << (32 - cidr)) - 1
-
-        # Convert the mask to dotted-decimal notation
-        subnet_mask = []
-        for i in range(0, 32, 8):
-            subnet_mask.append(str((mask >> i) & 0xFF))
-
-        return ".".join(subnet_mask[::-1])
-    
-    def converting_to_cidr(self, subnet_mask, ip_address):
-        '''
-        This function is responsible for converting given ip address, and subnet mask into
-        their corresponding CIDR notation.
-        Params:
-            @subnet_mask: The subnet mask of the ip address
-            @ip_address: The network IP address
-        Returns: The formatted CIDR address
-        '''
-        # Check if subnet mask in netmask notation
-        if isinstance(subnet_mask, int):
-            # If the subnet mask is in CIDR notation, return the CIDR address
-            return ip_address + "/" + str(subnet_mask)
-        elif '.' in subnet_mask:
-            # Figure out subnet mask CIDR prefix
-            converted_subnet = self.converting_to_binary(subnet_mask)
-            consecutive_ones = 0
-            # Count the number of consecutive ones in the subnet mask
-            for i in converted_subnet:
-                if i == '1':
-                    consecutive_ones += 1
-                else:
-                    break 
-            # Form the CIDR address
-            CIDR_address = ip_address + "/" + str(consecutive_ones)
-            # Return the CIDR address
-            return CIDR_address
-    def figure_out_range(self, CIDR_address):
-        '''
-        This function is responsible for figuring out the range of IP addresses.
-        Params:
-            @CIDR_address: The CIDR address
-        Returns: A list containing the range of IP addresses
-        '''
-        # Isolate the ip address from the CIDR notation
-        ip_address = CIDR_address.split('/')[0]
-        # Isolate the CIDR from the CIDR notation
-        cidr = int(CIDR_address.split('/')[1])
-        # Figure out the number of host bits
-        host_bits = 32 - cidr
-        # Able to convert the ip address into a 32-bit unsigned integer
-        i = struct.unpack('>I', struct.pack('!4B', *[int(x) for x in ip_address.split('.')]))[0]
-        # Figure out the start of the range
-        start = (i >> host_bits) << host_bits
-        # Figure out the end of the range
-        end = start | ((1 << host_bits) - 1)
-        subnet_addresses = []
-        # Iterate through the range of IP addresses
-        for i in range(start, end + 1):
-            subnet_addresses.append('.'.join(str((i >> (8 * j)) & 255) for j in range(3, -1, -1)))
-        # Return the range of IP addresses
-        return subnet_addresses
-    
-    def compare_ips(self, ip1, ip2):
-        ip1_address = ip1.split('/')[0]
-        ip2_address = ip2.split('/')[0]
-        # Split the IP addresses into their components
-        ip1_parts = ip1_address.split('.')
-        ip2_parts = ip2_address.split('.')
-        
-        # Convert each part of the IP address to integers
-        ip1_int = [int(part) for part in ip1_parts]
-        ip2_int = [int(part) for part in ip2_parts]
-        
-        # Compare the numerical values of the IP addresses
-        for i in range(4):
-            if ip1_int[i] > ip2_int[i]:
-                return ip2
-            elif ip1_int[i] < ip2_int[i]:
-                return ip1
-        
-
-    def are_cidr_addresses_adjacent(self,network_cidr, matching_in_table ):
-        '''
-        This function is responsible for checking if the given CIDR addresses are adjacent.
-        '''
-        network_cidr = network_cidr.split('/')[0]
-        matching_in_table = matching_in_table.split('/')[0]
-        prefix_with_masking_new_network_binary = self.converting_to_binary(network_cidr)
-        prefix_with_masking_network_binary = self.converting_to_binary(matching_in_table)
-
-        matching_bits = 0
-        for bit1, bit2 in zip(prefix_with_masking_new_network_binary, prefix_with_masking_network_binary):
-            if bit1 != bit2:
-                break
-            matching_bits += 1
-
-        return matching_bits
-        
-    def increment_ip(self, ip):
-        '''
-        This function is responsible for incrementing the given IP address.
-        -- Helper function for are_cidr_addresses_adjacent --
-        Params:
-            @ip: The IP address to be incremented
-        Returns: The incremented IP address
-        '''
-        # Split the IP address into its octets
-        octets = ip.split('.')
-        # Convert each octet to an integer
-        octets = [int(octet) for octet in octets]
-        # Increment the last octet
-        octets[-1] += 1
-        # Handle adding rules for IP addresses
-        for i in range(len(octets) - 1, 0, -1):
-            if octets[i] > 255:
-                octets[i] = 0
-                octets[i - 1] += 1
-        # Convert the octets back to strings and join them with '.'
-        new_ip = '.'.join(str(octet) for octet in octets)
-        return new_ip
-
+   
         
     def has_same_attributes(self, localpref, ASPath, origin, selfOrigin, matching_in_table):
         """
-        Test function to check if src_ip's attributes are the same within the same network
-        CIDR. If they are, the src_ip's entires can be aggregated into one entry,
-        return True. {See the testing_sameAttribute for testing!}
+        Test function to check if the attributes of the announcement are the same as the attributes of the entry in the forwarding table
+        Params:
+            @localpref: The local preference of the announcement
+            @ASPath: The ASPath of the announcement
+            @origin: The origin of the announcement
+            @selfOrigin: The selfOrigin of the announcement
+            @matching_in_table: The entry in the forwarding table
+        Returns: True if the attributes are the same, False otherwise
         """
-
-        # TODO: if (3) have the same attributes == True
+        # Iterate through the sources of the entry in the forwarding table
         for sources in self.forwarding_table[matching_in_table]:
             for attributes in self.forwarding_table[matching_in_table][sources]:
                 # If the localpref, ASPath, origin, and selfOrigin are the same
@@ -291,22 +274,6 @@ class Router:
                 else:
                     return False
 
-
-    def aggregate_networks(self, entry1, entry2, netmask):
-        '''
-        This function is responsible for aggregating the given entries.
-        Params:
-            @entry1: The first entry to be aggregated
-            @entry2: The second entry to be aggregated
-        '''
-        # TODO: Figure out how to combine the two entries into one entry    
-        smaller_ip = self.compare_ips(entry1, entry2).split('/')[0]
-        
-        combined_entry = self.converting_to_cidr(netmask, smaller_ip)
-        print(f"**COMBINED ENTRY**: {combined_entry}")
-        return combined_entry, netmask
-        
-
     def handle_update(self, msg):
         '''
         This function handles the update message recieved from the neighboring
@@ -314,7 +281,6 @@ class Router:
         announcement is forwarded to all neighbors except the source.
         Params:
             @msg: The update message recieved from the neighboring routers
-            @srcif: The source interface from which the message was recieved
         '''
         # Save a copy of this revocation
         self.announcement_cache.append(msg)
@@ -327,7 +293,7 @@ class Router:
         network_ip = msg_data['network']
         
         # convert network IP to CIDR notation
-        network_cidr = self.converting_to_cidr(msg_data['netmask'], network_ip)
+        network_cidr = IPConfig.converting_to_cidr(msg_data['netmask'], network_ip)
         netmask = msg_data['netmask']
         localpref = msg_data['localpref']
         ASPath = msg_data['ASPath']
@@ -348,10 +314,10 @@ class Router:
                 if network_cidr != network:
                     matching_in_table = network
                     if self.has_same_attributes(localpref, ASPath, origin, selfOrigin, matching_in_table):
-                        CIDR_prefix = self.are_cidr_addresses_adjacent(network_cidr, matching_in_table)
-                        new_network = self.compare_ips(network_cidr, matching_in_table).split('/')[0]
-                        netmask = self.cidr_to_subnet_mask(CIDR_prefix)
-                        network_cidr = self.converting_to_cidr(CIDR_prefix, new_network)
+                        CIDR_prefix = IPConfig.are_cidr_addresses_adjacent(network_cidr, matching_in_table)
+                        new_network = IPConfig.compare_ips(network_cidr, matching_in_table).split('/')[0]
+                        netmask = IPConfig.cidr_to_subnet_mask(CIDR_prefix)
+                        network_cidr = IPConfig.converting_to_cidr(CIDR_prefix, new_network)
                         del self.forwarding_table[matching_in_table]
                         break
                     else:
@@ -391,7 +357,12 @@ class Router:
         return
 
 
-    def forward_update_announcement(self, msg):       
+    def forward_update_announcement(self, msg): 
+        '''
+        This function is responsible for forwarding the update announcement following the rules of forwarding.
+        Params:
+            @msg: The update announcement to be forwarded
+        '''      
         msg_data = msg['msg']
         src = msg['src'] # original source of announcement
         dst = msg['dst']
@@ -505,6 +476,12 @@ class Router:
     
 
     def handle_data(self, msg, srcif):
+        '''
+        This function is responsible for handling the data message recieved from the neighboring routers.
+        Params:
+            @msg: The data message recieved from the neighboring routers
+            @srcif: The source interface of the data message
+        '''
         # extract dst and src from data message
         dst = msg['dst']
         src = msg['src']
@@ -556,7 +533,7 @@ class Router:
         Returns: A list of the best routes to the destination IP address
         '''
         # convert destination IP to binary
-        dst_binary = self.converting_to_binary(dst)
+        dst_binary = IPConfig.converting_to_binary(dst)
         # initialize variables to store best routes and longest prefix match
         best_routes = []
         longest_prefix_match = -1
@@ -566,8 +543,8 @@ class Router:
             # iterate through the src ip addresses of the entry and their attributes
             for peer, attributes in details.items():
                 # convert network IP and netmask to binary
-                network_binary = self.converting_to_binary(attributes['network_ip'])
-                netmask_binary = self.converting_to_binary(attributes['netmask'])
+                network_binary = IPConfig.converting_to_binary(attributes['network_ip'])
+                netmask_binary = IPConfig.converting_to_binary(attributes['netmask'])
                 
                 # convert the network ip and netmask to perform bitwise AND operation
                 mask_result = format(int(network_binary, 2) & int(netmask_binary, 2), '032b')
@@ -596,6 +573,12 @@ class Router:
 
 
     def handle_tie_breaker(self, best_routes):
+        '''
+        This function is responsible for breaking ties between the best routes to a destination IP address.
+        Params:
+            @best_routes: A list of the best routes to the destination IP address
+        Returns: The selected route after the tie is broken
+        '''
         # break tie for highest localpref
         # initialize variables to store highest localpref and route of tie
         # winner
@@ -671,13 +654,13 @@ class Router:
                     if len(best_routes) > 1:
                         # initialize variable to store lowest network IP address, 
                         # select arbitrary first route to tie break, converted to binary
-                        lowest_network_ip = self.converting_to_binary(best_routes[0]['peer'])
+                        lowest_network_ip = IPConfig.converting_to_binary(best_routes[0]['peer'])
                         # print(f"**LOWEST NETWORK IP**: {lowest_network_ip}")
                         lowest_network_ip = int(lowest_network_ip, 2)
                         route_tie_winner = [best_routes[0]]
                         for route in best_routes:
                             # convert network IP to binary
-                            network_ip = self.converting_to_binary(route['peer'])
+                            network_ip = IPConfig.converting_to_binary(route['peer'])
                             network_ip = int(network_ip, 2)
                             # if network IP is less than current lowest network IP, make route the tie winner
                             if network_ip < lowest_network_ip:
@@ -697,6 +680,12 @@ class Router:
 
 
     def handle_no_route(self, src, dst):
+        '''
+        This function is responsible for handling the case when there is no route to the destination IP address.
+        Params:
+            @src: The source IP address
+            @dst: The destination IP address
+        '''
         no_route_msg = {
             'src': self.our_addr(src),
             'dst': dst,
@@ -709,6 +698,11 @@ class Router:
 
 
     def handle_dump(self, msg):
+        '''
+        This function is responsible for handling the dump message recieved from the neighboring routers.
+        Params:
+            @msg: The dump message recieved from the neighboring routers
+        '''
         src = msg['src']  # Source of the dump request
 
         # Prepare a list to hold all the route entries
