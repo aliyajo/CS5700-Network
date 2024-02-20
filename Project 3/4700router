@@ -6,6 +6,32 @@ class IPConfig:
     This class is responsible for handling all the IP address configurations. This involves CIDR configuration as well. 
     '''
 
+    @staticmethod
+    def compare_prefixes(ip1, ip2):
+        '''
+        This function is responsible for comparing the given IP addresses.
+        Params:
+            @ip1: The first IP address
+            @ip2: The second IP address
+        Returns: True if the IP addresses are adjacent, False otherwise
+        '''
+        # Split the IP addresses into their quad components
+        quad1 = ip1.split('.')
+        quad2 = ip2.split('.')
+        
+        # Compare each quad component
+        for i in range(len(quad1)):
+            # If the quads are different
+            if quad1[i] != quad2[i]:
+                # Check if they are right next to each other
+                if abs(int(quad1[i]) - int(quad2[i])) == 1:
+                    return True
+                else:
+                    return False
+        
+        # If all quads are identical, return True
+        return True
+
     @staticmethod 
     def converting_to_binary(address):
         '''
@@ -314,7 +340,7 @@ class Router:
                 # If there are same hops, then we can see if can aggregate
                 if network_cidr != network:
                     matching_in_table = network
-                    if self.has_same_attributes(localpref, ASPath, origin, selfOrigin, matching_in_table):
+                    if self.has_same_attributes(localpref, ASPath, origin, selfOrigin, matching_in_table) and IPConfig.compare_prefixes(network_cidr, matching_in_table) == True:
                         CIDR_prefix = IPConfig.are_cidr_addresses_adjacent(network_cidr, matching_in_table)
                         new_network = IPConfig.compare_ips(network_cidr, matching_in_table).split('/')[0]
                         netmask = IPConfig.cidr_to_subnet_mask(CIDR_prefix)
@@ -398,14 +424,11 @@ class Router:
                     self.send(cur_neighbor, json.dumps(update_msg))
         return
 
-    def reconfigure_forwarding_table(self, announcement_cache):
+    def reconfigure_forwarding_table(self):
         '''
         This function is responsible for reconfiguring the forwarding table.
-        Params:
-            @announcement_cache: The announcement cache
         '''
         self.forwarding_table = {}
-        print(f"**RECONFIGURING FORWARDING TABLE**: {json.dumps(announcement_cache, indent=2)}")
         for entry in self.announcement_cache:
             if entry['type'] == 'update':
                 msg_data = entry['msg']
@@ -419,10 +442,29 @@ class Router:
                 selfOrigin = msg_data['selfOrigin']
                 relation = self.relations[peer]
                 network_cidr = IPConfig.converting_to_cidr(netmask, network_ip)
-                
+                # append router's ASN to front of ASPath
                 if self.asn not in ASPath:
                     ASPath.insert(0, self.asn)
-                
+                # Aggregation Logic
+                for existing_network in list(self.forwarding_table):
+                    for sources in self.forwarding_table[existing_network]:
+                        if peer in sources:
+                            if network_cidr != existing_network:
+                                if self.has_same_attributes(localpref, ASPath, origin, selfOrigin, existing_network) and IPConfig.compare_prefixes(network_cidr, existing_network) == True:
+                                    CIDR_prefix = IPConfig.are_cidr_addresses_adjacent(network_cidr, existing_network)
+                                    new_network = IPConfig.compare_ips(network_cidr, existing_network).split('/')[0]
+                                    netmask = IPConfig.cidr_to_subnet_mask(CIDR_prefix)
+                                    network_cidr = IPConfig.converting_to_cidr(CIDR_prefix, new_network)
+                                    del self.forwarding_table[existing_network]
+                                    break
+                                else:
+                                    break
+                            else:
+                                break
+                        else:
+                            break
+                                
+
 
                 if network_cidr not in self.forwarding_table:
                     # FIRST LAYER
@@ -442,25 +484,7 @@ class Router:
                         'relation': relation,
                         'network_ip': network_ip,
                     }
-
-                # This aggregation logic should not be here. It should be upwards more since
-                # it actively changes the variables being put into the forwarding table
-                                # Aggregation logic
-                for existing_network, sources in self.forwarding_table.items():
-                    print(f"**EXISTING NETWORK**: {existing_network}")
-                    print(f"**SOURCES**: {sources}")
-                    if peer in sources:
-                        if network_cidr != existing_network:
-                            matching_in_table = existing_network
-                            if self.has_same_attributes(localpref, ASPath, origin, selfOrigin, matching_in_table):
-                                CIDR_prefix = IPConfig.are_cidr_addresses_adjacent(network_cidr, matching_in_table)
-                                new_network = IPConfig.compare_ips(network_cidr, matching_in_table).split('/')[0]
-                                netmask = IPConfig.cidr_to_subnet_mask(CIDR_prefix)
-                                network_cidr = IPConfig.converting_to_cidr(CIDR_prefix, new_network)
-                                del self.forwarding_table[matching_in_table]
-                                break
-                        else:
-                            pass
+                print("**FORWARDING TABLE UPDATED**:\n" + json.dumps(self.forwarding_table, indent=2))
 
         return
 
@@ -480,8 +504,6 @@ class Router:
         src = msg['src']
         # From the withdrawal message, extract the network and netmask
         network_removal, netmask_removal = [(i['network'], i['netmask']) for i in msg['msg']][0]
-        print(f"**netmask_removal**: {netmask_removal}")
-        print(f"**network_removal**: {network_removal}")
         # Iterate through the forwarding table
         for entry in self.forwarding_table:
             ip_address = entry.split('/')[0]
@@ -497,18 +519,19 @@ class Router:
                             print(f"**WITHDRAWAL**: {self.forwarding_table[entry][j]}")
                             del self.forwarding_table[entry][j]
                             break
+            # Lets look at the announcement cache to see if withdrawal statement is in there
             else:
                     for i in self.announcement_cache:
+                        # Find matching update announcement in announcement cache that correlates with withdrawal statement
                         if i['type'] == 'update':
                             if i['src'] == src:
+                                # If the network and netmask are the same as the withdrawal message
                                 if i['msg']['network'] in network_removal and i['msg']['netmask'] in netmask_removal:
-                                    print(f"**UPDATE**: {i}")
-                                    print(f"**REMOVING**: {i}")
                                     self.announcement_cache.remove(i)
                                     self.create_new_table = True
-                                    print(f"**WITHDRAWAL ANNOUNCEMENT CACHE**: {json.dumps(self.announcement_cache, indent=2)}")
+                                # If need to reconfigure forwarding table
                                 if self.create_new_table:
-                                    self.reconfigure_forwarding_table(self.announcement_cache)
+                                    self.reconfigure_forwarding_table()
                                     self.create_new_table = False
                                     break
                             else:
