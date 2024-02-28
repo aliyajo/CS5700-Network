@@ -19,9 +19,9 @@ class Sender:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Create a UDP socket
         self.socket.bind(('0.0.0.0', 0))  # Bind the socket to a random local port
         self.waiting = False
-        self.sequence_number = 0
         self.outstanding_packets = {}
         self.window_size = 2
+        self.sequence_number = 0
 
     def log(self, message):
         '''
@@ -67,11 +67,27 @@ class Sender:
         # Setting sequence number as the first layer key
         if sequence_number not in self.outstanding_packets:
             self.outstanding_packets[sequence_number] = {
-                # Adding the time sent in second layer
+                # Adding the time sent in the second layer
                 "time": start,
-                # Adding the data in second layer
+                # Adding the data in the second layer
                 "data": data
             }
+        #TODO: maybe where implement duplicate logic?
+    
+    def extract_sequence_number(self, data):
+        '''
+        This function is used to extract the sequence number from the data.
+        Params:
+            @data: string of the data
+        Returns:
+            @sequence_number: integer of the sequence number
+        '''
+        # Split the data by the first space
+        start_index = data.find('Block ') + len('Block ')
+        end_index = data.find(' ', start_index)
+        # Extract the sequence number from the data
+        self.sequence_number = data[start_index:end_index]
+        return self.sequence_number
 
     def run(self):
         while True:
@@ -95,8 +111,8 @@ class Sender:
                     # Else, set waiting to true
                     else :
                         # TODO: This is probably where will implement RTO
+                        # Could use this class variable of waiting to determine RTO
                         self.waiting = True
-                    print("Waiting: ", self.waiting)
                     # Log the received message
                     self.log("Received message '%s'" % msg)
 
@@ -108,6 +124,7 @@ class Sender:
                         if len(data) == 0:
                             self.log("All done!")
                             sys.exit(0)
+                        self.sequence_number = self.extract_sequence_number(data)
                         # Create our own timer -- used for retransmission aspect -- 
                         start = time.process_time()
                         # Create a message object
@@ -119,8 +136,6 @@ class Sender:
                             }
                         # Tracking the outstanding packets
                         self.tracking_outstanding_packets(self.sequence_number, data, start)
-                        # Increment the sequence number
-                        self.sequence_number += 1
                         # Log the message being sent
                         self.log("Sending message '%s'" % msg)
                         # Send the message to the remote host and port
