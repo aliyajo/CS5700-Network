@@ -4,43 +4,44 @@ import argparse, socket, time, json, select, struct, sys, math
 
 DATA_SIZE = 1375
 
+# Define the Sender class
 class Sender:
     def __init__(self, host, port):
         self.host = host
         self.remote_port = int(port)
         self.log("Sender starting up using port %s" % self.remote_port)
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.bind(('0.0.0.0', 0))
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Create a UDP socket
+        self.socket.bind(('0.0.0.0', 0))  # Bind the socket to a random local port
         self.waiting = False
 
     def log(self, message):
-        sys.stderr.write(message + "\n")
+        sys.stderr.write(message + "\n")  # Write the log message to stderr
         sys.stderr.flush()
 
     def send(self, message):
-        self.socket.sendto(json.dumps(message).encode('utf-8'), (self.host, self.remote_port))
+        self.socket.sendto(json.dumps(message).encode('utf-8'), (self.host, self.remote_port))  # Send the message to the remote host and port
 
     def run(self):
         while True:
-            sockets = [self.socket, sys.stdin] if not self.waiting else [self.socket]
+            sockets = [self.socket, sys.stdin] if not self.waiting else [self.socket]  # Select the sockets to monitor for input
 
-            socks = select.select(sockets, [], [], 0.1)[0]
+            socks = select.select(sockets, [], [], 0.1)[0]  # Wait for input on the sockets with a timeout of 0.1 seconds
             for conn in socks:
-                if conn == self.socket:
-                    k, addr = conn.recvfrom(65535)
-                    msg = k.decode('utf-8')
+                if conn == self.socket:  # If the input is from the socket
+                    k, addr = conn.recvfrom(65535)  # Receive data from the socket
+                    msg = k.decode('utf-8')  # Decode the received data
 
-                    self.log("Received message '%s'" % msg)
+                    self.log("Received message '%s'" % msg)  # Log the received message
                     self.waiting = False
-                elif conn == sys.stdin:
-                    data = sys.stdin.read(DATA_SIZE)
+                elif conn == sys.stdin:  # If the input is from the standard input
+                    data = sys.stdin.read(DATA_SIZE)  # Read data from the standard input
                     if len(data) == 0:
                         self.log("All done!")
                         sys.exit(0)
 
-                    msg = { "type": "msg", "data": data }
-                    self.log("Sending message '%s'" % msg)
-                    self.send(msg)
+                    msg = { "type": "msg", "data": data }  # Create a message object
+                    self.log("Sending message '%s'" % msg)  # Log the message being sent
+                    self.send(msg)  # Send the message to the remote host and port
                     self.waiting = True
 
         return
@@ -50,5 +51,5 @@ if __name__ == "__main__":
     parser.add_argument('host', type=str, help="Remote host to connect to")
     parser.add_argument('port', type=int, help="UDP port number to connect to")
     args = parser.parse_args()
-    sender = Sender(args.host, args.port)
-    sender.run()
+    sender = Sender(args.host, args.port)  # Create a Sender object with the provided host and port
+    sender.run()  # Run the sender
