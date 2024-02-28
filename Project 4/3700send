@@ -3,6 +3,8 @@
 import argparse, socket, time, json, select, struct, sys, math
 
 DATA_SIZE = 1375
+sequence_number = 0
+window_size = 2
 
 # Define the Sender class
 class Sender:
@@ -13,6 +15,8 @@ class Sender:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Create a UDP socket
         self.socket.bind(('0.0.0.0', 0))  # Bind the socket to a random local port
         self.waiting = False
+        self.sequence_number = 0
+        self.outstanding_packets = {}
 
     def log(self, message):
         sys.stderr.write(message + "\n")  # Write the log message to stderr
@@ -24,27 +28,61 @@ class Sender:
     def run(self):
         while True:
             sockets = [self.socket, sys.stdin] if not self.waiting else [self.socket]  # Select the sockets to monitor for input
-
+            
             socks = select.select(sockets, [], [], 0.1)[0]  # Wait for input on the sockets with a timeout of 0.1 seconds
             for conn in socks:
-                if conn == self.socket:  # If the input is from the socket
+                # If the connection is from the socket
+                if conn == self.socket:
                     k, addr = conn.recvfrom(65535)  # Receive data from the socket
                     msg = k.decode('utf-8')  # Decode the received data
+                    ack = json.loads(msg)
+                    self.hi()
+                        # if s == ack['sequence']:
+                        #     print(f"Received ack for sequence {ack['sequence']}")
+                            # self.outstanding_packets.remove(packets)
+                        # print(f"IIIIIII: {i}")
+                        # if ack[i] and self.outstanding_packets[i] == 'sequence':
+                        #     print(f"IIIIIII: {i}")
 
+                        #     if ack[i] == self.outstanding_packets[i]:
+                        #         print(f"Received ack for sequence {ack[i]}")
+                        #         print(f"Outstanding packets: {self.outstanding_packets}")
+                        #         self.outstanding_packets.pop(0)
+                    # if len(self.outstanding_packets) == 0:
+                    #     self.waiting = False
                     self.log("Received message '%s'" % msg)  # Log the received message
-                    self.waiting = False
-                elif conn == sys.stdin:  # If the input is from the standard input
-                    data = sys.stdin.read(DATA_SIZE)  # Read data from the standard input
-                    if len(data) == 0:
-                        self.log("All done!")
-                        sys.exit(0)
 
-                    msg = { "type": "msg", "data": data }  # Create a message object
-                    self.log("Sending message '%s'" % msg)  # Log the message being sent
-                    self.send(msg)  # Send the message to the remote host and port
-                    self.waiting = True
+                # If the connection is from the standard input
+                elif conn == sys.stdin:
+                    if len(self.outstanding_packets) < window_size:
+                        data = sys.stdin.read(DATA_SIZE)  # Read data from the standard input
+                        if len(data) == 0:
+                            self.log("All done!")
+                            sys.exit(0)
+                        start = time.process_time()
 
+                        msg = { "type": "msg", "sequence": self.sequence_number, "time": start, "data": data }  # Create a message object
+                        self.tracking_outstanding_packets(self.sequence_number, data)
+                        self.sequence_number += 1
+                        self.log("Sending message '%s'" % msg)  # Log the message being sent
+                        self.send(msg)  # Send the message to the remote host and port
+                        # self.waiting = True
+                    
         return
+    
+    def hi(self):
+        print(json.dumps(self.outstanding_packets, indent=4))
+        # for sequence, data in self.outstanding_packets:
+        #     print(f"*****{sequence}")
+    def tracking_outstanding_packets(self, sequence_number, data):
+        '''
+        This function is used to track the outstanding packets, establish a dictionary
+        Params:
+            @sequence_number: integer of the sequence number
+            @data: string of the data
+        '''
+        self.outstanding_packets[sequence_number]
+        self.outstanding_packets[sequence_number] = {'data': data}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='send data')

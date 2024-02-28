@@ -26,6 +26,7 @@ class Receiver:
         sys.stderr.flush()
 
     def run(self):
+        msges = []
         while True:
             # Use select to wait for data to be available for reading from the socket
             socks = select.select([self.socket], [], [])[0]
@@ -48,7 +49,8 @@ class Receiver:
 
                 # TODO: This might be where we establish that cumulative ACK
                 # Always send back an ack
-                self.send({ "type": "ack" })
+                msges.append(msg["sequence"])
+                self.send({ "type": "ack", "sequence": msg["sequence"] })
 
         return
     
