@@ -33,56 +33,72 @@ class Sender:
             for conn in socks:
                 # If the connection is from the socket
                 if conn == self.socket:
-                    k, addr = conn.recvfrom(65535)  # Receive data from the socket
-                    msg = k.decode('utf-8')  # Decode the received data
+                    # Receive data from the socket
+                    k, addr = conn.recvfrom(65535)
+                    # Decode the received data
+                    msg = k.decode('utf-8')
+                    # Json load the message
                     ack = json.loads(msg)
-                    self.hi()
-                        # if s == ack['sequence']:
-                        #     print(f"Received ack for sequence {ack['sequence']}")
-                            # self.outstanding_packets.remove(packets)
-                        # print(f"IIIIIII: {i}")
-                        # if ack[i] and self.outstanding_packets[i] == 'sequence':
-                        #     print(f"IIIIIII: {i}")
-
-                        #     if ack[i] == self.outstanding_packets[i]:
-                        #         print(f"Received ack for sequence {ack[i]}")
-                        #         print(f"Outstanding packets: {self.outstanding_packets}")
-                        #         self.outstanding_packets.pop(0)
-                    # if len(self.outstanding_packets) == 0:
-                    #     self.waiting = False
-                    self.log("Received message '%s'" % msg)  # Log the received message
+                    # Check if the sequence number from ack is in the outstanding packets
+                    self.checking_acknowledgement(ack['sequence'])
+                    # If the outstanding packets is empty, set waiting to false
+                    if len(self.outstanding_packets) == 0:
+                        self.waiting = False
+                    # Else, set waiting to true
+                    else :
+                        self.waiting = True
+                    print("Waiting: ", self.waiting)
+                    # Log the received message
+                    self.log("Received message '%s'" % msg)
 
                 # If the connection is from the standard input
                 elif conn == sys.stdin:
                     if len(self.outstanding_packets) < window_size:
-                        data = sys.stdin.read(DATA_SIZE)  # Read data from the standard input
+                        # Read data from the standard input
+                        data = sys.stdin.read(DATA_SIZE)
                         if len(data) == 0:
                             self.log("All done!")
                             sys.exit(0)
                         start = time.process_time()
 
                         msg = { "type": "msg", "sequence": self.sequence_number, "time": start, "data": data }  # Create a message object
-                        self.tracking_outstanding_packets(self.sequence_number, data)
+                        self.tracking_outstanding_packets(self.sequence_number, data, start)
                         self.sequence_number += 1
                         self.log("Sending message '%s'" % msg)  # Log the message being sent
                         self.send(msg)  # Send the message to the remote host and port
-                        # self.waiting = True
+
                     
         return
     
-    def hi(self):
-        print(json.dumps(self.outstanding_packets, indent=4))
-        # for sequence, data in self.outstanding_packets:
-        #     print(f"*****{sequence}")
-    def tracking_outstanding_packets(self, sequence_number, data):
+    def checking_acknowledgement(self, acknowledge_sequence):
+        '''
+        This function is used to check if the sequence number is in the outstanding packets.
+        If it is, remove from the outstanding packets list.
+        Params:
+            @acknowledge_sequence: integer of the sequence number
+        '''
+        for sequence in self.outstanding_packets:
+            if acknowledge_sequence == sequence:
+                self.outstanding_packets.pop(sequence)
+                break
+        return
+    
+    def tracking_outstanding_packets(self, sequence_number, data, start):
         '''
         This function is used to track the outstanding packets, establish a dictionary
         Params:
             @sequence_number: integer of the sequence number
             @data: string of the data
         '''
-        self.outstanding_packets[sequence_number]
-        self.outstanding_packets[sequence_number] = {'data': data}
+        # Setting sequence number as the first layer key
+        if sequence_number not in self.outstanding_packets:
+            self.outstanding_packets[sequence_number] = {
+                # Adding the time sent in second layer
+                "time": start,
+                # Adding the data in second layer
+                "data": data
+            }
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='send data')
