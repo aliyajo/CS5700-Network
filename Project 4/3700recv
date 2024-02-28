@@ -56,6 +56,10 @@ class Receiver:
     
 
     def cumulative_ack(self, ack):
+        '''
+        Send a cumulative ack to the sender.
+        This is only implemented if multiple packets are recieved
+        '''
         # Send a cumulative ack to the remote host
         self.send({ "type": "ack", "ack": ack })
 
