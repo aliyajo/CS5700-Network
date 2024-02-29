@@ -16,6 +16,10 @@ class Receiver:
         self.remote_host = None
         self.remote_port = None
 
+        # save acknowledged packets
+        self.sequences_acknowledged = []
+        
+
     def send(self, message):
         # Send a message to the remote host and port
         self.socket.sendto(json.dumps(message).encode('utf-8'), (self.remote_host, self.remote_port))
@@ -26,7 +30,6 @@ class Receiver:
         sys.stderr.flush()
 
     def run(self):
-        msges = []
         while True:
             # Use select to wait for data to be available for reading from the socket
             socks = select.select([self.socket], [], [])[0]
@@ -44,14 +47,21 @@ class Receiver:
                 # Log the received data message
                 self.log("Received data message %s" % msg)
 
-                # Print out the data to stdout
-                print(msg["data"], end='', flush=True)
-
                 # TODO: This might be where we establish that cumulative ACK
-                # Always send back an ack
-                msges.append(msg["sequence"])
-                self.send({ "type": "ack", "sequence": msg["sequence"] })
 
+                # send back ack for sequence number, if not yet acknowledged
+                if msg["sequence"] not in self.sequences_acknowledged:
+                    # print out the data to stdout
+                    print(msg["data"], end='', flush=True)
+
+                    # send ack to sequence number
+                    self.sequences_acknowledged.append(msg["sequence"])
+                    self.send({ "type": "ack", "sequence": msg["sequence"] })
+                    
+                # if sequence number already acknowledged, don't send another ack
+                else:
+                    continue
+                
         return
     
 
