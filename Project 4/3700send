@@ -4,8 +4,10 @@ import argparse, socket, time, json, select, struct, sys, math
 
 DATA_SIZE = 1375
 
-# Define the Sender class
 class Sender:
+    '''
+    This class is responsible for sending data.
+    '''
     def __init__(self, host, port):
         ''''
         Constructor for the Sender class.
@@ -13,66 +15,45 @@ class Sender:
             @host: string of the remote host to connect to
             @port: integer of the UDP port number to connect to
         '''
+        # Initialize the remote host and port
         self.host = host
         self.remote_port = int(port)
         self.log("Sender starting up using port %s" % self.remote_port)
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Create a UDP socket
-        self.socket.bind(('0.0.0.0', 0))  # Bind the socket to a random local port
-        self.waiting = False
+        # Create a UDP socket
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.bind(('0.0.0.0', 0))
+        # Keep track of the outstanding packets
         self.outstanding_packets = {}
-        self.window_size = 2
         self.sequence_number = 0
+        # -- Congestion control variables --
+        # Intialize the congestion window
+        self.cong_window = 1
+        # Initialize the slow start threshold
+        self.slow_start_thresh = 4
+        # -- Timeout variables --
+        # Initialize the round trip time
+        self.round_trip_time = 1
+        # Initialize the timeout time
+        self.timeout = self.round_trip_time * 2
 
     def log(self, message):
         '''
-        This function is used to log a message to stderr.
+        This function logs a message using stderr.
         Params:
-            @message: string of the message to log
+            @message: The message to log
         '''
-        # Using stderr to log the message
-        sys.stderr.write(message + "\n") 
+        # Write the message to stderr
+        sys.stderr.write(message + "\n")
+        # Flush the buffer
         sys.stderr.flush()
 
     def send(self, message):
         '''
-        This function is used to send a message to the remote host and port.
+        This function sends a message to the remote host.
         Params:
-            @message: dictionary of the message to send
+            @message: The message to send
         '''
-        # Send the message to the remote host and port
         self.socket.sendto(json.dumps(message).encode('utf-8'), (self.host, self.remote_port))
-
-    def checking_acknowledgement(self, acknowledge_sequence):
-        '''
-        This function is used to check if the sequence number is in the outstanding packets.
-        If it is, remove from the outstanding packets list.
-        Params:
-            @acknowledge_sequence: integer of the sequence number
-        '''
-        # Iterate through the outstanding packets
-        for sequence in self.outstanding_packets:
-            # If the sequence number is in the outstanding packets, remove it
-            if acknowledge_sequence == sequence:
-                self.outstanding_packets.pop(sequence)
-                break
-        return
-    
-    def tracking_outstanding_packets(self, sequence_number, data, start):
-        '''
-        This function is used to track the outstanding packets, establishes a dictionary.
-        Params:
-            @sequence_number: integer of the sequence number
-            @data: string of the data
-        '''
-        # Setting sequence number as the first layer key
-        if sequence_number not in self.outstanding_packets:
-            self.outstanding_packets[sequence_number] = {
-                # Adding the time sent in the second layer
-                "time": start,
-                # Adding the data in the second layer
-                "data": data
-            }
-        #TODO: maybe where implement duplicate logic?
     
     def extract_sequence_number(self, data):
         '''
@@ -86,68 +67,146 @@ class Sender:
         start_index = data.find('Block ') + len('Block ')
         end_index = data.find(' ', start_index)
         # Extract the sequence number from the data
-        self.sequence_number = data[start_index:end_index]
-        return self.sequence_number
+        sequence_number = data[start_index:end_index]
+        # Return the sequence number
+        return sequence_number
+
+    def retransmission_control(self, sequence):
+        '''
+        This function deals with the retransmission timeout control aspect of the sender.
+        All of the calculations was taken from lecture slides.
+        Params:
+            @sequence: integer of the sequence number of the ack
+        '''
+        # Exract the time the packet was sent out
+        sent_out_time = self.outstanding_packets[sequence]["time"]
+        # -- Calculation for this Round Trip Time (RTT) --
+        # New RTT = (0.875)(Old RTT) + (1 - 0.875)(Sample RTT)
+        # Sample RTT = time the ack was received - time the packet was sent out >> This is the time it took for the packet to be acknowledged
+        self.round_trip_time = (0.875) * self.round_trip_time + (1 - 0.875) * (time.process_time() - sent_out_time)
+        # -- Calculation for the Timeout Time (RTO) --
+        # RTO = 2 * New RTT
+        self.timeout_time = self.round_trip_time * 2
+    
+    def congestion_control(self, timeout=False):
+        '''
+        This function is used to implement the congestion control algorithm.
+        Deals with multiple aspects of congestion control
+         * Timeout 
+         * Slow Start
+         * Congestion Avoidance
+        Params:
+            @Timeout: boolean of whether the packet has timed out
+        '''
+        # If the packet has timed out
+        if timeout:
+            # If the packet has timed out, set the slow start threshold to half the congestion window
+            self.slow_start_thresh = self.cong_window / 2
+            # Set the congestion window to 1
+            self.cong_window = 1
+        # If the packet has not timed out
+        else:
+            # -- Slow Start --
+            # If the cong window is less than the ssthresh
+            if self.cong_window < self.slow_start_thresh:
+                # Implement the slow start phase, exponential growth
+                self.cong_window *= 2
+            # -- Congestion Avoidance --
+            # If the cong window is greater than or equal to the slow start threshold
+            elif self.cong_window >= self.slow_start_thresh: 
+                self.cong_window = self.cong_window + (1 / self.cong_window)
 
     def run(self):
+        '''
+        This function runs the sender.
+        '''
+        # While loop
         while True:
-            sockets = [self.socket, sys.stdin] if not self.waiting else [self.socket]  # Select the sockets to monitor for input
-            
-            socks = select.select(sockets, [], [], 0.1)[0]  # Wait for input on the sockets with a timeout of 0.1 seconds
+            # Select the socket
+            sockets = [self.socket, sys.stdin]
+            socks = select.select(sockets, [], [], 0.1)[0]
+            # -- Timeout Control --
+            # For each outstanding packet
+            for sequence, data in self.outstanding_packets.items():
+                # Calculate the expected time
+                expected_time = data["time"] + self.timeout
+                # Get the current time
+                current_time = time.process_time()
+                # If the data has timed out
+                if current_time > expected_time:
+                    sequence = self.extract_sequence_number(data["data"])
+                    # Retransmit the packet due to it timing out
+                    msg = {"type": "msg", 
+                           "sequence": sequence, 
+                           "time": time.process_time(), 
+                           "data": data["data"]}
+                    self.outstanding_packets[sequence] = msg
+                    self.log(f"Retransmitting Packet With Sequence #: {sequence}")
+                    self.send(msg)
+                    # Timeout Control, timeout is True
+                    self.congestion_control(timeout=True)
+            # For each socket
             for conn in socks:
-                # If the connection is from the socket
+                # If the socket is the UDP socket, recieved message from the receiver
                 if conn == self.socket:
-                    # Receive data from the socket
                     k, addr = conn.recvfrom(65535)
-                    # Decode the received data
-                    msg = k.decode('utf-8')
-                    # Json load the message
-                    ack = json.loads(msg)
-                    # Check if the sequence number from ack is in the outstanding packets
-                    self.checking_acknowledgement(ack['sequence'])
-                    # If the outstanding packets is empty, set waiting to false
-                    if len(self.outstanding_packets) == 0:
-                        self.waiting = False
-                    # Else, set waiting to true
-                    else :
-                        # TODO: This is probably where will implement RTO
-                        # Could use this class variable of waiting to determine RTO
-                        self.waiting = True
-                    # Log the received message
-                    self.log("Received message '%s'" % msg)
-
-                # If the connection is from the standard input
+                    msg = json.loads(k.decode('utf-8'))
+                    # Extract sequence number
+                    sequence = msg["sequence"]
+                    # Received message from the receiver
+                    self.log(f"Recieved Acknowledgement with Sequence #: {sequence}")
+                    # If the sequence number is in the outstanding packets list, deal with it
+                    if sequence in self.outstanding_packets:
+                        # Congestion Control
+                        self.congestion_control(timeout=False)
+                        # Timeout Control
+                        self.retransmission_control(sequence)
+                        # Dealt with the ack, so remove it from the outstanding packets list
+                        del self.outstanding_packets[sequence]
+                # If the socket is stdin
+                # Used in cases of sending data to the reciever, or when the transmission is done
                 elif conn == sys.stdin:
-                    if len(self.outstanding_packets) < self.window_size:
-                        # Read data from the standard input
+                    # If the outstanding packets is less than the congestion window
+                    if len(self.outstanding_packets) < self.cong_window:
+                        # Read data from stdin, this is data trying to send
                         data = sys.stdin.read(DATA_SIZE)
-                        if len(data) == 0:
-                            self.log("All done!")
-                            sys.exit(0)
-                        self.sequence_number = self.extract_sequence_number(data)
-                        # Create our own timer -- used for retransmission aspect -- 
-                        start = time.process_time()
-                        # Create a message object
-                        msg = { 
+                        # -- If there is data to send --
+                        # Configuring message to send to the receiver
+                        if data:
+                            # Extract the sequence number from the data
+                            sequence = self.extract_sequence_number(data)
+                            # Create the message
+                            msg = {
                             "type": "msg", 
-                            "sequence": self.sequence_number, 
-                            "time": start, 
-                            "data": data 
+                            "sequence": sequence, 
+                            "time": time.process_time(),
+                            "data": data, 
                             }
-                        # Tracking the outstanding packets
-                        self.tracking_outstanding_packets(self.sequence_number, data, start)
-                        # Log the message being sent
-                        self.log("Sending message '%s'" % msg)
-                        # Send the message to the remote host and port
-                        self.send(msg)
-                    
-        return
+                            # Add the message to the outstanding packets
+                            self.outstanding_packets[sequence] = msg
+                            # Send the message to the receiver
+                            self.send(msg)
+                            # Log the message
+                            self.log(f"Sending Packet With Sequence #: {sequence}")
+
+                        # there is no more data to send, exit  
+                        if len(data) == 0:
+                            # all data has been sent and all ACKs received
+                            if not self.outstanding_packets:
+                                self.log("All done!")
+                                return
 
 
 if __name__ == "__main__":
+    # Parse the arguments
     parser = argparse.ArgumentParser(description='send data')
+    # Add the host argument
     parser.add_argument('host', type=str, help="Remote host to connect to")
+    # Add the port argument
     parser.add_argument('port', type=int, help="UDP port number to connect to")
+    # Parse the arguments
     args = parser.parse_args()
-    sender = Sender(args.host, args.port)  # Create a Sender object with the provided host and port
-    sender.run()  # Run the sender
+    # Create a sender object
+    sender = Sender(args.host, args.port)
+    # Run the sender
+    sender.run()

@@ -3,75 +3,102 @@
 import argparse, socket, time, json, select, struct, sys, math
 
 class Receiver:
+    '''
+    This class is responsible for receiving data.
+    '''
     def __init__(self):
+        '''
+        This is the constructor for the Receiver class.
+        '''
         # Create a UDP socket
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # Bind the socket to any available IP address and port
         self.socket.bind(('0.0.0.0', 0))
-        # Get the port number that the socket is bound to
         self.port = self.socket.getsockname()[1]
-        # Log the bound port number
         self.log("Bound to port %d" % self.port)
-
+        # Initialize the remote host and port
         self.remote_host = None
         self.remote_port = None
-
-        # save acknowledged packets
+        # save acknowledged packets so we know what has finished being handled
         self.sequences_acknowledged = []
+        # store all ack messages in case packets are out of order, and need to print at the very end
+        self.acknowledgement_cache = {}
+        # This is the parameter that will be used to keep track of the sequence number, help with keeping things in order
+        self.sequential_sequence_parameter = '0000000' # Base sequence number
         
-
     def send(self, message):
-        # Send a message to the remote host and port
+        '''
+        This function sends a message.
+        Params:
+            @message: The message to send
+        '''
         self.socket.sendto(json.dumps(message).encode('utf-8'), (self.remote_host, self.remote_port))
 
     def log(self, message):
-        # Log a message to stderr
+        '''
+        This function logs a message using stderr.
+        Params:
+            @message: The message to log
+        '''
         sys.stderr.write(message + "\n")
         sys.stderr.flush()
 
+    def deliver_in_order(self):
+        '''
+        -- In-Order Delivery --
+        This function prints the packets in the correct order.
+        We have two ways on making sure the packets are in order:
+        1. We can sort the packets by their sequence number
+        2. Only print the packets that have been acknowledged and match the next sequential sequence number
+        '''
+        # We want to ensure that the packets are in order
+        in_order = sorted(self.acknowledgement_cache.items(), key=lambda x: int(x[0]))
+        self.acknowledgement_cache = {key: value for key, value in in_order}
+        # Print the packets
+        for key, value in self.acknowledgement_cache.items():
+            if key == self.sequential_sequence_parameter:
+                print(value["data"], end='', flush=True)
+                self.sequential_sequence_parameter = str(int(self.sequential_sequence_parameter) + 1).zfill(len(self.sequential_sequence_parameter))
+                # we've printed the packet, so it has been acknowledged & delivered
+                self.sequences_acknowledged.append(key)
+        # Clear acknowledgement cache for all acknowledged sequences
+        self.acknowledgement_cache = {seq: ack for seq, ack in self.acknowledgement_cache.items() if seq not in self.sequences_acknowledged}
+        # Clear acknowledged sequences list
+        self.sequences_acknowledged.clear()
+
     def run(self):
+        '''
+        This function runs the receiver.
+        '''
+        # Loop forever
         while True:
             # Use select to wait for data to be available for reading from the socket
             socks = select.select([self.socket], [], [])[0]
             for conn in socks:
                 # Receive data from the socket
                 data, addr = conn.recvfrom(65535)
-
                 # Grab the remote host/port if we don't already have it
                 if self.remote_host is None:
                     self.remote_host = addr[0]
                     self.remote_port = addr[1]
-
                 # Decode the received data as JSON
                 msg = json.loads(data.decode('utf-8'))
+                # Extract the sequence number from the data
+                sequence = msg["sequence"]
                 # Log the received data message
-                self.log("Received data message %s" % msg)
-
-                # TODO: This might be where we establish that cumulative ACK
-
-                # send back ack for sequence number, if not yet acknowledged
-                if msg["sequence"] not in self.sequences_acknowledged:
-                    # print out the data to stdout
-                    print(msg["data"], end='', flush=True)
-
-                    # send ack to sequence number
-                    self.sequences_acknowledged.append(msg["sequence"])
-                    self.send({ "type": "ack", "sequence": msg["sequence"] })
-                    
-                # if sequence number already acknowledged, don't send another ack
-                else:
-                    continue
-                
-        return
-    
-
-    def cumulative_ack(self, ack):
-        '''
-        Send a cumulative ack to the sender.
-        This is only implemented if multiple packets are recieved
-        '''
-        # Send a cumulative ack to the remote host
-        self.send({ "type": "ack", "ack": ack })
+                self.log(f"**Received ack**; {sequence}")
+                # Add the sequence number to the list of acknowledged packets
+                if sequence not in self.acknowledgement_cache.keys():
+                    # store the entire message to print at the end
+                    self.acknowledgement_cache[sequence] = msg
+                # Send Acknowledgment
+                self.send({ 
+                    "type": "ack", 
+                    "sequence": sequence 
+                    })
+                # Log the acknowledgment message
+                self.log(f"**Sending ack**; {msg['sequence']}")
+                # -- In-Order Delivery --
+                self.deliver_in_order()
 
 if __name__ == "__main__":
     # Parse command line arguments
