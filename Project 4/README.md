@@ -11,7 +11,7 @@ This program is to build off a UDP baseline implementation, and build it to matc
 ## How to run:
 - This program can be ran through the command line input:
     > Command Line Syntax for sending program:
-        ./3700send <recv_host> <recv_port>
+        ./4700send <recv_host> <recv_port>
     
     recv_host: The domain name, or IP address of the remote host -- Required --
     recv_port: The UDP port of the remote host -- Required --
@@ -19,7 +19,7 @@ This program is to build off a UDP baseline implementation, and build it to matc
     The data from the sender is sent to the receiver using the STDIN. Transmit this data via the UDP socket. 
 
     > Command line syntax for receiving program:
-        ./3700recv
+        ./4700recv
 
     The reciever program prints out the data using the STDOUT. The data that it prints is identical to the data that is supplied from the sender via STDIN. 
 
