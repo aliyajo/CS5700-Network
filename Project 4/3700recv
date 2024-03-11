@@ -85,10 +85,10 @@ class Receiver:
                 # Extract the sequence number from the data
                 sequence = msg["sequence"]
                 # Log the received data message
-                self.log(f"**Received ack**; {sequence}")
+                self.log(f"Received acknowledgement for sequence: {sequence}")
                 # Add the sequence number to the list of acknowledged packets
                 if sequence not in self.acknowledgement_cache.keys():
-                    # store the entire message to print at the end
+                    # Store the acknowledgment message in acknowledgement cache dictionary
                     self.acknowledgement_cache[sequence] = msg
                 # Send Acknowledgment
                 self.send({ 
@@ -96,7 +96,7 @@ class Receiver:
                     "sequence": sequence 
                     })
                 # Log the acknowledgment message
-                self.log(f"**Sending ack**; {msg['sequence']}")
+                self.log(f"Sending acknowledgment with sequence: {msg['sequence']}")
                 # -- In-Order Delivery --
                 self.deliver_in_order()
 

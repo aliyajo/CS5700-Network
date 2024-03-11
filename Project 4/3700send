@@ -154,7 +154,7 @@ class Sender:
                     # Extract sequence number
                     sequence = msg["sequence"]
                     # Received message from the receiver
-                    self.log(f"Recieved Acknowledgement with Sequence #: {sequence}")
+                    self.log(f"Received Acknowledgement with Sequence #: {sequence}")
                     # If the sequence number is in the outstanding packets list, deal with it
                     if sequence in self.outstanding_packets:
                         # Congestion Control
@@ -189,7 +189,7 @@ class Sender:
                             # Log the message
                             self.log(f"Sending Packet With Sequence #: {sequence}")
 
-                        # there is no more data to send, exit  
+                        # There is no more data, exit 
                         if len(data) == 0:
                             # all data has been sent and all ACKs received
                             if not self.outstanding_packets:
