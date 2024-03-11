@@ -31,7 +31,17 @@ that each had their own characteristics it was testing of the program.
     For instance, ensuring delivery is in order, congestion control, etc are isolated in functions. 
 
 - Throughout these levels, they were broken down on paper on what part of the TCP protocol is being asked. This was looked more into using the lecture slides which provided equations and pseudocode to help build off of these levels. 
-
+- What each level targeted, and was worked on in this order:
+    > Level 1: Handling bigger window size.
+    > Level 2: Handling duplicate packets.
+    > Level 3: Implementing a more sufficient window that can handle delays. 
+                Also need to be able to implement making the program deliver packets in-order.
+    > Level 4: Handling packet loss.
+    > Level 5: Handling corruption of packets.
+    > Level 6: Handling different latencies.
+    > Level 7: Handling different bandwidths.
+    > Level 8: Overall mechanism test. 
+    
 ## Functions:
 -- In 3700send file -- 
 -  'Sender' Class: 
@@ -43,6 +53,8 @@ that each had their own characteristics it was testing of the program.
         This function sends a message to the remote host.
     > extract_sequence_number(data)
         This function is used to extract the sequence number from the data
+    > calculate_checksum(data)
+        This function is used to calculate the checksum of the data
     > retransmission_control(sequence):
         This function deals with the retransmission timeout control aspect of the sender. 
     > congestion_control(timeout=false)
@@ -62,6 +74,8 @@ that each had their own characteristics it was testing of the program.
         This function sends a message.
     > log(message)
         This function logs a message using stderr.
+    > check_for_corruption(msg)
+        This function checks for corruption in the message utilizing the checksum.
     > deliver_in_order()
         This function ensures that the program delivers packets in-order.
     > run()

@@ -42,6 +42,21 @@ class Receiver:
         sys.stderr.write(message + "\n")
         sys.stderr.flush()
 
+    def check_for_corruption(self, msg):
+        '''
+        This function checks for corruption in the message.
+        Utilizing the checksum to check for corruption.
+        Params:
+            @msg: The message to check for corruption
+        Returns:
+            True if the message is not corrupted, False otherwise
+        '''
+        checksum = str(sum(ord(char) for char in msg["data"]))
+        if msg["checksum"] == checksum:
+            return False
+        else:
+            return True
+    
     def deliver_in_order(self):
         '''
         -- In-Order Delivery --
@@ -53,14 +68,13 @@ class Receiver:
         # We want to ensure that the packets are in order
         in_order = sorted(self.acknowledgement_cache.items(), key=lambda x: int(x[0]))
         self.acknowledgement_cache = {key: value for key, value in in_order}
-        # Print the packets
+        # Delivering packets in order
         for key, value in self.acknowledgement_cache.items():
             if key == self.sequential_sequence_parameter:
                 print(value["data"], end='', flush=True)
                 self.sequential_sequence_parameter = str(int(self.sequential_sequence_parameter) + 1).zfill(len(self.sequential_sequence_parameter))
-                # we've printed the packet, so it has been acknowledged & delivered
+                # Add the sequence number to the list of acknowledged packets
                 self.sequences_acknowledged.append(key)
-        # Clear acknowledgement cache for all acknowledged sequences
         self.acknowledgement_cache = {seq: ack for seq, ack in self.acknowledgement_cache.items() if seq not in self.sequences_acknowledged}
         # Clear acknowledged sequences list
         self.sequences_acknowledged.clear()
@@ -80,25 +94,33 @@ class Receiver:
                 if self.remote_host is None:
                     self.remote_host = addr[0]
                     self.remote_port = addr[1]
-                # Decode the received data as JSON
-                msg = json.loads(data.decode('utf-8'))
-                # Extract the sequence number from the data
-                sequence = msg["sequence"]
-                # Log the received data message
-                self.log(f"Received acknowledgement for sequence: {sequence}")
-                # Add the sequence number to the list of acknowledged packets
-                if sequence not in self.acknowledgement_cache.keys():
-                    # Store the acknowledgment message in acknowledgement cache dictionary
-                    self.acknowledgement_cache[sequence] = msg
-                # Send Acknowledgment
-                self.send({ 
-                    "type": "ack", 
-                    "sequence": sequence 
-                    })
-                # Log the acknowledgment message
-                self.log(f"Sending acknowledgment with sequence: {msg['sequence']}")
-                # -- In-Order Delivery --
-                self.deliver_in_order()
+                # Check if can decode the data
+                try:
+                    # Decode the received data as JSON
+                    msg = json.loads(data.decode('utf-8'))
+                except json.JSONDecodeError:
+                    # If the data is not JSON, ignore it
+                    self.log("Can't decode the given data")
+                    continue
+                # Check if the data is corrupted
+                if self.check_for_corruption(msg) == False:
+                    # Extract the sequence number from the data
+                    sequence = msg["sequence"]
+                    # Log the received data message
+                    self.log(f"Received acknowledgement for sequence: {sequence}")
+                    # Add the sequence number to the list of acknowledged packets
+                    if sequence not in self.acknowledgement_cache.keys():
+                        # Store the acknowledgment message in acknowledgement cache dictionary
+                        self.acknowledgement_cache[sequence] = msg
+                    # Send Acknowledgment
+                    self.send({ 
+                        "type": "ack", 
+                        "sequence": sequence 
+                        })
+                    # Log the acknowledgment message
+                    self.log(f"Sending acknowledgment with sequence: {msg['sequence']}")
+                    # -- In-Order Delivery --
+                    self.deliver_in_order()
 
 if __name__ == "__main__":
     # Parse command line arguments

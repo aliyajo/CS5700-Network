@@ -70,6 +70,19 @@ class Sender:
         sequence_number = data[start_index:end_index]
         # Return the sequence number
         return sequence_number
+    
+    def calculate_checksum(self, data):
+        '''
+        This function is used to calculate the checksum of the data.
+        Params:
+            @data: string of the data
+        Returns:
+            @checksum: string of the checksum
+        '''
+        # Calculate the checksum
+        checksum = str(sum(ord(char) for char in data))
+        # Return the checksum
+        return checksum
 
     def retransmission_control(self, sequence):
         '''
@@ -135,10 +148,13 @@ class Sender:
                 # If the data has timed out
                 if current_time > expected_time:
                     sequence = self.extract_sequence_number(data["data"])
+                    # Calculate the checksum
+                    checksum = self.calculate_checksum(data["data"])
                     # Retransmit the packet due to it timing out
                     msg = {"type": "msg", 
                            "sequence": sequence, 
                            "time": time.process_time(), 
+                           "checksum": checksum,
                            "data": data["data"]}
                     self.outstanding_packets[sequence] = msg
                     self.log(f"Retransmitting Packet With Sequence #: {sequence}")
@@ -147,10 +163,15 @@ class Sender:
                     self.congestion_control(timeout=True)
             # For each socket
             for conn in socks:
-                # If the socket is the UDP socket, recieved message from the receiver
+                # If the socket is the UDP socket, received message from the receiver
                 if conn == self.socket:
                     k, addr = conn.recvfrom(65535)
-                    msg = json.loads(k.decode('utf-8'))
+                    # Check if can decode the given data
+                    try:
+                        msg = json.loads(k.decode('utf-8'))
+                    except json.JSONDecodeError:
+                        self.log("Can't decode the given data")
+                        continue
                     # Extract sequence number
                     sequence = msg["sequence"]
                     # Received message from the receiver
@@ -175,11 +196,14 @@ class Sender:
                         if data:
                             # Extract the sequence number from the data
                             sequence = self.extract_sequence_number(data)
+                            # Calculate checksum
+                            checksum = self.calculate_checksum(data)
                             # Create the message
                             msg = {
                             "type": "msg", 
                             "sequence": sequence, 
                             "time": time.process_time(),
+                            "checksum": checksum,
                             "data": data, 
                             }
                             # Add the message to the outstanding packets
@@ -188,14 +212,12 @@ class Sender:
                             self.send(msg)
                             # Log the message
                             self.log(f"Sending Packet With Sequence #: {sequence}")
-
                         # There is no more data, exit 
                         if len(data) == 0:
-                            # all data has been sent and all ACKs received
+                            # If there are no more outstanding packets
                             if not self.outstanding_packets:
                                 self.log("All done!")
                                 return
-
 
 if __name__ == "__main__":
     # Parse the arguments
