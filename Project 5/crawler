@@ -127,9 +127,9 @@ class Crawler:
             A list of set-cookie headers.
         '''
         # Split the response by lines
-        lines = data.split('\n')
+        html_data = data.split('\n')
         # Iterate over the lines
-        for line in lines:
+        for line in html_data:
             # If the line starts with 'set-cookie', add it to the list
             if line.startswith('set-cookie'):
                 # Extract only the cookie information from the line, strip the white spaces
@@ -161,14 +161,14 @@ class Crawler:
             This function extracts the links from the HTML response.
             Adds to the global variable 'frontier'.
             Params:
-                data: The HTML response from the server.
+                secondary: A boolean indicating whether the links are from the initial login page or subsequent pages.
             '''
             # This is for the initial login page
             if secondary == False:
                 # Split the response by lines
-                lines = self.data.split('\n')
+                html_data = self.data.split('\n')
                 # Iterate over the lines
-                for line in lines:
+                for line in html_data:
                     # If the line contains 'location:', extract the link
                     if 'location:' in line:
                         # Extract the link by splitting the line at 'location:' and taking the second part
@@ -178,9 +178,9 @@ class Crawler:
             # This is for the subsequent pages
             elif secondary == True:
                 # Split the response by lines
-                lines = self.data.split('\n')
+                html_data = self.data.split('\n')
                 # Iterate over the lines
-                for line in lines:
+                for line in html_data:
                     # If the line contains 'href=', extract the link
                     if 'href=' in line:
                         if 'fakebook' in line:
@@ -198,9 +198,9 @@ class Crawler:
             The status code, or a default value if not found.
         '''
         # Split the response by lines
-        lines = data.split('\n')
+        html_data = data.split('\n')
         # Find the line that starts with 'HTTP/1.1'
-        for line in lines:
+        for line in html_data:
             if line.startswith('HTTP/1.1'):
                 # Extract the status code from the status line
                 status_code = line.split()[1]
@@ -213,23 +213,15 @@ class Crawler:
             data: The HTML response from the server.
         '''
         # Split the response by lines
-        lines = data.split('\n')
-        # Establish a flag variable
-        found_flag = False
+        html_data = data.split('\n')
         # Iterate over the lines
-        for line in lines:
-            # If the line contains the flag class and style, extract the flag value
+        for line in html_data:
+            # If the line contains the flag class, extract the flag value
             if '<h3 class=\'secret_flag\' style="color:red"' in line:
-                # Extract the flag value by splitting the line at 'FLAG:' and taking the second part
+                # Extract the flag value by splitting the line at 'FLAG:'
                 flag = line.split('FLAG:')[1].strip().rstrip('</h3>')
-                # Print the flag value
-                found_flag = True
                 # Add the flag to the list of flags
                 self.flags.append(flag)
-        # if found_flag:
-        #     print(f"Found Flag: {flag}")
-        # else:
-        #     print("No flag found")
         
     def crawl(self, ssl_socket, url):
         '''
@@ -240,8 +232,6 @@ class Crawler:
             ssl_socket: The SSL socket to use.
             url: The URL to crawl.
         '''
-        # For debugging purposes
-        # print("Going to url: ", url)
         # Send the GET request
         self.send_GET_request(ssl_socket, url, secondary=True)
         # Read the response
@@ -251,10 +241,10 @@ class Crawler:
         # Handling when the status is 503
         if status == '503':
             # Server is unavailable, retry the url
-            # print("Retrying url")
             self.crawl(ssl_socket, url)
+        # Handling when the status is 404 or 403
         elif status == '404' or status == '403':
-            # print("Page not found, abandon url")
+            # Page not found so, pass
             pass
         # Handling when the status is 302
         elif status == '302':
@@ -310,9 +300,10 @@ class Crawler:
                     self.links_already_visited.add(url)
                     # Crawl
                     self.crawl(ssl_socket, url)
-            # Print the flags individually
-            for flag in self.flags:
-                print(flag)
+            # Store the flags in a string
+            flag_string = '\n'.join(self.flags)
+            # Print the flags with a newline character at the end
+            print(flag_string)
             # Close the socket
             ssl_socket.close()
 
