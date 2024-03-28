@@ -58,6 +58,7 @@ This project is to implement the HTTP protocol.This involves creating a web craw
         Extracts the status code from the HTTP response.
     > extract_flags(data):
         Extracts the secret flags from the given HTML data.
+        Implements re library to help extract flags appropriately.
     > crawl(ssl_socket, url):
         Crawls the server. It does this by performing the following:
         Sending a GET request from one of the links from the 
@@ -73,7 +74,7 @@ There were many challenges involving implementing HTML. Some include:
 
 - Ensuring the correct format was used to communicate with HTML browsers. This involved making sure every detail of the POST and GET requests were accurate. If not, this would prevent access to logging into 'Fakebook'
 
-- Extracting the correct information from the HTML browser. Utilized both own logic, as well as the library HTMLParser to help with parsing the correct information from the browsers. 
+- Extracting the correct information from the HTML browser. The secret flags is when I was running into the most trouble/bugs. My original code would erase one or two items from the end of the secret flag, presenting it to be wrong. Because of this, had to utilize the re library.
 
 ## Testing:
 - Testing for this project involved appropriate printing statements throughout the code. This involved printing out the individual HTML pages, and ensuring the parsing was correct. It also involved printing out the history and frontier variable to ensure these data sets were being utilized correctly.
@@ -86,3 +87,5 @@ There were many challenges involving implementing HTML. Some include:
 > Lecture Slides: Web
 
 > https://en.wikipedia.org/wiki/HTTP
+
+> https://docs.python.org/3/library/re.html 

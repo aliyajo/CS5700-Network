@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 from queue import Queue
+import re
 import socket
 import ssl
 
@@ -212,16 +213,19 @@ class Crawler:
         Params:
             data: The HTML response from the server.
         '''
-        # Split the response by lines
         html_data = data.split('\n')
+        # Define a regular expression pattern to match the flag
+        # The a-f0-9 pattern matches any hexadecimal character, prevents false negatives
+        flag_pattern = re.compile(r'FLAG:\s*([a-f0-9]+)')
         # Iterate over the lines
         for line in html_data:
-            # Check if the line contains the flag
-            if 'FLAG: ' in line:
-                # Extract the flag value
-                flag = line.split('FLAG: ')[1].strip('</h3>')
-                # Add the flag to the list of flags
-                self.flags.append(flag)
+            # If the line contains the flag class and style, extract the flag value using the regular expression
+            if '<h3 class=\'secret_flag\' style="color:red">' in line:
+                match = flag_pattern.search(line)
+                if match:
+                    flag = match.group(1)
+                    # Add the flag to the list of flags
+                    self.flags.append(flag)
         
     def crawl(self, ssl_socket, url):
         '''
