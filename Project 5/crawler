@@ -216,10 +216,10 @@ class Crawler:
         html_data = data.split('\n')
         # Iterate over the lines
         for line in html_data:
-            # If the line contains the flag class, extract the flag value
-            if '<h3 class=\'secret_flag\' style="color:red"' in line:
-                # Extract the flag value by splitting the line at 'FLAG:'
-                flag = line.split('FLAG:')[1].strip().rstrip('</h3>')
+            # Check if the line contains the flag
+            if 'FLAG: ' in line:
+                # Extract the flag value
+                flag = line.split('FLAG: ')[1].strip()
                 # Add the flag to the list of flags
                 self.flags.append(flag)
         
