@@ -32,14 +32,6 @@ This project is to implement the HTTP protocol.This involves creating a web craw
 - The design involved a recursive loop when it came to getting passed the initial login page due to the concept of a crawler being able to crawl throughout a web server.
     
 ## Functions:
-- 'Extractor' Class:
-    > Constructor
-        Creates extractor object
-    > handle_starttag(tag, attrs)
-        Handles the start tag of an HTML element
-        Look at HTMLParser library for documentation
-    > get_links()
-        Returns extracted links
 -  'Crawler' Class: 
     > Contructor
         Creates a Crawler object

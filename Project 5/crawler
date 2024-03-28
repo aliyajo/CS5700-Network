@@ -8,42 +8,6 @@ import ssl
 DEFAULT_SERVER = "proj5.3700.network"
 DEFAULT_PORT = 443
 
-class Extractor(HTMLParser):
-    '''
-    This class is responsible for extracting information from the HTML response.
-    '''
-    def __init__(self):
-        '''
-        This is the constructor for the Extractor class.
-        '''
-        super().__init__()
-        self.links = []
-
-    def handle_starttag(self, tag, attrs):
-        '''
-        This function handles the start tag of an HTML element.
-        Extracts the appropriate information from the HTML response.
-        Params:
-            tag: The tag of the HTML element.
-            attrs: The attributes of the HTML element.
-        '''
-        # If the tag is 'a'
-        if tag == 'a':
-            for name, value in attrs:
-                # If the attribute is 'href', indicating a link
-                if name == 'href':
-                    # Only append if a fakebook link
-                    if '/fakebook/' in value:
-                        self.links.append(value)
-
-    def get_links(self):
-        '''
-        This function returns the list of links.
-        '''
-        # Return the list of links
-        return self.links
-
-
 class Crawler:
     '''
     This class is responsible for crawling the Fakebook server.
@@ -214,15 +178,17 @@ class Crawler:
                         self.frontier.put(link)
             # This is for the subsequent pages
             elif secondary == True:
-                # Create an instance of the Extractor class
-                extractor = Extractor()
-                # Feed the data to the HTML parser
-                extractor.feed(self.data)
-                # Get the links from the HTML response
-                links = extractor.get_links()
-                # Add the links to the frontier
-                for link in links:
-                    self.frontier.put(link)
+                # Split the response by lines
+                lines = self.data.split('\n')
+                # Iterate over the lines
+                for line in lines:
+                    # If the line contains 'href=', extract the link
+                    if 'href=' in line:
+                        if 'fakebook' in line:
+                            # Extract the link by splitting the line at 'href=' and taking the second part
+                            link = line.split('href=')[1].strip().split('"')[1].strip()
+                            # Add the link to the list
+                            self.frontier.put(link)
 
     def extract_status_code(self, data):
         '''
