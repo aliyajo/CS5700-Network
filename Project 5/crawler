@@ -1,0 +1,322 @@
+#!/usr/bin/env python3
+
+import argparse
+from queue import Queue
+import socket
+import ssl
+
+DEFAULT_SERVER = "proj5.3700.network"
+DEFAULT_PORT = 443
+
+class Crawler:
+    '''
+    This class is responsible for crawling the Fakebook server.
+    '''
+    def __init__(self, args):
+        '''
+        This is the constructor for the Crawler class. 
+        It initializes the server, port, username, and password.
+        Params:
+            args: The arguments passed in from the command line.
+        '''
+        # Initialize the server, port, username, and password
+        self.server = args.server
+        self.port = args.port
+        self.username = args.username
+        self.password = args.password
+        self.links_already_visited = set()
+        self.frontier = Queue()
+        self.flags = []
+        self.cookies = []
+        self.data = ''
+
+    def create_socket(self):
+        '''
+        This function creates a socket and returns it.
+        Returns:
+            The created socket.
+        '''
+        # Connect to the server
+        mysocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        mysocket.connect((self.server, self.port))
+        # Create an SSL context
+        ssl_context = ssl.create_default_context()
+        # Wrap the socket in SSL/TLS
+        ssl_socket = ssl_context.wrap_socket(mysocket, server_hostname=self.server)
+        return ssl_socket
+    
+    def read_response(self, ssl_socket):
+        '''
+        This function reads the response from the server and returns it.
+        Ensures that the response is read in its entirety.
+        Params:
+            ssl_socket: The SSL socket to read from.
+        Returns:
+            The response data.
+        '''
+        # Response data
+        response = ssl_socket.recv(1000).decode('ascii')
+        while response:
+            if not response:
+                break
+            response += ssl_socket.recv(1000).decode('ascii')
+        return response
+
+    def send_GET_request(self, ssl_socket, url, secondary=False):
+        '''
+        This function is for sending a GET request to the server.
+        Params:
+            ssl_socket: The SSL socket to use.
+            url: The URL to send the GET request to.
+            secondary: A boolean indicating whether the GET request is for the initial login page or subsequent pages.
+        '''
+        # If the GET request is for the initial login page
+        if secondary == False:
+            # Construct the GET request
+            get_request = f'GET {url} HTTP/1.1\r\n' \
+                f'Host: {self.server}:{self.port}\r\n' \
+                f'Connection: keep-alive\r\n' \
+                f'Referer: https://{self.server}/fakebook/\r\n\r\n'
+            # Send the GET request
+            ssl_socket.send(get_request.encode('ascii'))
+        # If the GET request is for subsequent pages
+        elif secondary == True:
+            # Construct the GET request
+            cookies = '; '.join(self.cookies)
+            get_request = f'GET {url} HTTP/1.1\r\n' \
+                f'Host: {self.server}:{self.port}\r\n' \
+                f'Cookie: {cookies}\r\n' \
+                f'Connection: keep-alive\r\n' \
+                f'Referer: https://{self.server}/fakebook/\r\n\r\n'
+            # Send the GET request
+            ssl_socket.send(get_request.encode('ascii'))
+    
+    def send_POST_request(self, ssl_socket, data, url):
+        '''
+        This function is for sending a POST request to the server.
+        Params:
+            ssl_socket: The SSL socket to use.
+            data: The data to send in the POST request.
+            url: The URL to send the POST request to.
+        '''
+        # Implement the usage of the csrfmiddlewaretoken, necessary for verification
+        csrf = self.extract_csrf(data)
+        # Credentials to be sent in the POST request
+        credentials = f"username={self.username}&password={self.password}&csrfmiddlewaretoken={csrf}"
+        # Construct the POST request
+        post_request = f'POST {url} HTTP/1.1\r\n' \
+            f'Host: {self.server}:{self.port}\r\n' \
+            f'Accept-Encoding: gzip\r\n' \
+            f'Referer: https://{self.server}/fakebook/\r\n' \
+            f'Content-Type: application/x-www-form-urlencoded\r\n' \
+            f'Content-Length: {len(credentials)}\r\n' \
+            f'Cookie: {self.cookies[0]}{self.cookies[1]}\r\n' \
+            f'Connection: keep-alive\r\n\r\n' \
+            f"{credentials}\r\n\r\n"
+        # Send the POST request
+        ssl_socket.send(post_request.encode('ascii'))
+        
+    def extract_cookies(self, data):
+        '''
+        This function extracts the set-cookie headers from the HTML response.
+        Params:
+            data: The HTML response from the server.
+        Returns:
+            A list of set-cookie headers.
+        '''
+        # Split the response by lines
+        lines = data.split('\n')
+        # Iterate over the lines
+        for line in lines:
+            # If the line starts with 'set-cookie', add it to the list
+            if line.startswith('set-cookie'):
+                # Extract only the cookie information from the line, strip the white spaces
+                cookie = line.split(':')[1].split(';')[0].strip()
+                self.cookies.append(cookie + ";")
+    
+    def extract_csrf(self, data):
+        '''
+        This function extracts the value of the csrfmiddlewaretoken from the HTML response.
+        Params:
+            data: The HTML response from the server.
+        Returns:
+            The value of the csrfmiddlewaretoken.
+        '''
+        # Find the start and end index of the csrfmiddlewaretoken
+        start_index = data.find('name="csrfmiddlewaretoken"')
+        end_index = data.find('>', start_index)
+        # Extract the csrfmiddlewaretoken
+        csrf_substring = data[start_index:end_index]
+        # Find the start and end index of the value attribute
+        value_start_index = csrf_substring.find('value="') + len('value="')
+        value_end_index = csrf_substring.find('"', value_start_index)
+        # Extract the value of the csrfmiddlewaretoken
+        csrf_value = csrf_substring[value_start_index:value_end_index]
+        return csrf_value
+    
+    def extract_links(self, secondary=False):
+            '''
+            This function extracts the links from the HTML response.
+            Adds to the global variable 'frontier'.
+            Params:
+                data: The HTML response from the server.
+            '''
+            # This is for the initial login page
+            if secondary == False:
+                # Split the response by lines
+                lines = self.data.split('\n')
+                # Iterate over the lines
+                for line in lines:
+                    # If the line contains 'location:', extract the link
+                    if 'location:' in line:
+                        # Extract the link by splitting the line at 'location:' and taking the second part
+                        link = line.split('location:')[1].strip()
+                        # Add the link to the list
+                        self.frontier.put(link)
+            # This is for the subsequent pages
+            elif secondary == True:
+                lines = self.data.split('\n')
+                for line in lines:
+                    # If the line contains 'href', extract the link
+                    if 'href' in line:
+                        # Extract the link by splitting the line at 'href' and taking the second part
+                        link = line.split('href="')[1].split('"')[0]
+                        # Add the link to the list
+                        self.frontier.put(link)
+
+    def extract_status_code(self, data):
+        '''
+        This function extracts the status code from the HTTP response.
+        Params:
+            data: The HTTP response from the server.
+        Returns:
+            The status code, or a default value if not found.
+        '''
+        # Split the response by lines
+        lines = data.split('\n')
+        # Find the line that starts with 'HTTP/1.1'
+        for line in lines:
+            if line.startswith('HTTP/1.1'):
+                # Extract the status code from the status line
+                status_code = line.split()[1]
+                return status_code
+    
+    def extract_flags(self, data):
+        '''
+        This function extracts the flags from the HTML response.
+        Params:
+            data: The HTML response from the server.
+        '''
+        # Split the response by lines
+        lines = data.split('\n')
+        # Establish a flag variable
+        found_flag = False
+        # Iterate over the lines
+        for line in lines:
+            # If the line contains the flag class and style, extract the flag value
+            if '<h3 class=\'secret_flag\' style="color:red"' in line:
+                # Extract the flag value by splitting the line at 'FLAG:' and taking the second part
+                flag = line.split('FLAG:')[1].strip().rstrip('</h3>')
+                # Print the flag value
+                found_flag = True
+                # Add the flag to the list of flags
+                self.flags.append(flag)
+        if found_flag:
+            print(f"Found Flag: {flag}")
+        else:
+            print("No flag found")
+        
+    def crawl(self, ssl_socket, url):
+        '''
+        This function crawls the server by sending a GET request to the 
+        specified URL and reading the response.
+        Handles the appropriate status codes and redirects.
+        Params:
+            ssl_socket: The SSL socket to use.
+            url: The URL to crawl.
+        '''
+        # For debugging purposes
+        print("Going to url: ", url)
+        # Send the GET request
+        self.send_GET_request(ssl_socket, url, secondary=True)
+        # Read the response
+        self.data = self.read_response(ssl_socket)
+        # Retrieve the status code
+        status = self.extract_status_code(self.data)
+        # Handling when the status is 503
+        if status == '503':
+            # Server is unavailable, retry the url
+            print("Retrying url")
+            self.crawl(ssl_socket, url)
+        elif status == '404' or status == '403':
+            print("Page not found, abandon url")
+            pass
+        # Handling when the status is 302
+        elif status == '302':
+            # HTTP redirect
+            # Extract from the location header
+            self.extract_links()
+            # Create new url
+            new_url = self.frontier.get()
+            # Crawl the new url
+            self.crawl(ssl_socket, new_url)
+        # Handling when the status is 200
+        elif status == '200':
+            # Everything is running ok
+            # Extract links from the response
+            self.extract_links(secondary=True)
+            # Extract flags from the response
+            self.extract_flags(self.data)
+            
+    def run(self):
+            '''
+            This function runs the crawler.
+            '''
+            ## -- Creating the socket -- ##
+            # Connect to the server
+            ssl_socket = self.create_socket()
+            ## -- Logging in -- ##
+            # Send GET request
+            self.send_GET_request(ssl_socket, '/accounts/login/?next=/fakebook/')
+            # Read the response
+            get_data = self.read_response(ssl_socket)
+            # Extract cookies from the response
+            self.extract_cookies(get_data)
+            # Send POST request
+            self.send_POST_request(ssl_socket, get_data, '/accounts/login/?next=/fakebook/')
+            # Read the response
+            self.data = ssl_socket.recv(102400).decode('ascii')
+            # Extract cookies from the response
+            self.extract_cookies(self.data)
+            # Extract links from the response
+            self.extract_links()
+            ## -- Crawling the server -- ##
+            # Now that we have the response from logging in, we can now crawl the server
+            # Ensure that the frontier is not empty and that we have not found all the flags
+            while not self.frontier.empty() and len(self.flags) < 5:
+                # Get the next url from the frontier
+                url = self.frontier.get()
+                # Check if the link has already been visited
+                if url in self.links_already_visited:
+                    continue
+                # If the link is not in the list of links already visited
+                else:
+                    # Add link to the list of links already visited
+                    self.links_already_visited.add(url)
+                    # Crawl
+                    self.crawl(ssl_socket, url)
+            # Print the flags individually
+            for flag in self.flags:
+                print(flag)
+            # Close the socket
+            ssl_socket.close()
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='crawl Fakebook')
+    parser.add_argument('-s', dest="server", type=str, default=DEFAULT_SERVER, help="The server to crawl")
+    parser.add_argument('-p', dest="port", type=int, default=DEFAULT_PORT, help="The port to use")
+    parser.add_argument('username', type=str, help="The username to use")
+    parser.add_argument('password', type=str, help="The password to use")
+    args = parser.parse_args()
+    sender = Crawler(args)
+    sender.run()
