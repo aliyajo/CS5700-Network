@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 
 import argparse
 from html.parser import HTMLParser
@@ -227,10 +228,10 @@ class Crawler:
                 found_flag = True
                 # Add the flag to the list of flags
                 self.flags.append(flag)
-        if found_flag:
-            print(f"Found Flag: {flag}")
-        else:
-            print("No flag found")
+        # if found_flag:
+        #     print(f"Found Flag: {flag}")
+        # else:
+        #     print("No flag found")
         
     def crawl(self, ssl_socket, url):
         '''
@@ -242,7 +243,7 @@ class Crawler:
             url: The URL to crawl.
         '''
         # For debugging purposes
-        print("Going to url: ", url)
+        # print("Going to url: ", url)
         # Send the GET request
         self.send_GET_request(ssl_socket, url, secondary=True)
         # Read the response
@@ -252,10 +253,10 @@ class Crawler:
         # Handling when the status is 503
         if status == '503':
             # Server is unavailable, retry the url
-            print("Retrying url")
+            # print("Retrying url")
             self.crawl(ssl_socket, url)
         elif status == '404' or status == '403':
-            print("Page not found, abandon url")
+            # print("Page not found, abandon url")
             pass
         # Handling when the status is 302
         elif status == '302':
