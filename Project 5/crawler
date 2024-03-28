@@ -219,7 +219,7 @@ class Crawler:
             # Check if the line contains the flag
             if 'FLAG: ' in line:
                 # Extract the flag value
-                flag = line.split('FLAG: ')[1].strip()
+                flag = line.split('FLAG: ')[1].strip('</h3>')
                 # Add the flag to the list of flags
                 self.flags.append(flag)
         
