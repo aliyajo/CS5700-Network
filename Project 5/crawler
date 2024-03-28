@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
 import argparse
 from html.parser import HTMLParser
@@ -93,9 +92,12 @@ class Crawler:
         '''
         # Response data
         response = ssl_socket.recv(1000).decode('ascii')
-        while response:
+        # Keep reading until the response is fully read, or until the end of the HTML
+        while response and '</html>' not in response:
+            # If the response is empty, break
             if not response:
                 break
+            # Read more data
             response += ssl_socket.recv(1000).decode('ascii')
         return response
 
