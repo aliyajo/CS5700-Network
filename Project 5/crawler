@@ -1,4 +1,4 @@
-#!/usr/bin/env -S python3 -u
+#!/usr/bin/env python
 import argparse
 from html.parser import HTMLParser
 from queue import Queue
