@@ -1,4 +1,5 @@
 Project 1: Socket Basics
+
 By: Aliya Jordan
 
 ## Overview
@@ -19,47 +20,70 @@ By: Aliya Jordan
 
 ## Functions
 
-**parse_args(): 
+- parse_args():
+  
     This function parses the command line arguments
     Returns the parsed arguments so it can be used to accurately run the game
-**connect_to_server(HostName, p, s, NortheasternUsername):
-    This function allows the connection to the server with the parsed argument. Once connected, it will send a "hello" message to server in JSON format to initiate protocol for the game.
+    
+- connect_to_server(HostName, p, s, NortheasternUsername):
+
+  This function allows the connection to the server with the parsed argument. Once connected, it will send a "hello" message to server in JSON format to initiate protocol for the game.
+  
     Params:
         @HostName is the host name of the server
         @p is the port number
         @NortheasternUsername is the Northeastern Username
+  
     Returns socket object
-**read_response(c_socket):
+    
+- read_response(c_socket):
+  
     This function allows us to read the response from the server
+  
     Params:
         @c_socket is the socket object
+  
     Returns the response from the server 
-**read_wordlist():
+- read_wordlist():
+  
     This functions allows us to read the given official Wordle word list.
+  
     Returns list of words from the text file
-**send_a_guess(c_socket, id, guess):
-    This function allows us to send a guessed word to the server from the socket. 
+- send_a_guess(c_socket, id, guess):
+  
+    This function allows us to send a guessed word to the server from the socket.
+  
     Params:
         @c_socket is the socket object
         @id is the id of the client for the current game
         @guess is the word that is being guessed
-**filter_word(guesses, guessed_word, marks):
+  
+- filter_word(guesses, guessed_word, marks):
+
     This function filters the guesses list based on the current guessed word, and its corresponding marks. 
     (Function that implements marks to determine the Wordle word)
+  
     Params:
         @guesses is the list of official words used by Wordle. 
         @guessed_word is the word that was guessed for the current iteration.
         @marks is the list of marks that correspond to the guessed word.
-    Returns: a list of filtered words from the guesses list. 
-**main():
+  
+    Returns: a list of filtered words from the guesses list.
+  
+- main():
+
     This is the main function that runs the entire game.
 
 ## Modules Used
     For this code, some built-in python modules that were imported in order to make the code functional when accomplishing the overall goal of the program. 
     - argparse: module that allows easy user-friendly command-line interfaces
+    
     - json: module that ensures JSON format is being used for communication between client and server. This is needed since the server only recieves JSON formatted messages, and returns JSON formatted message. 
+    
     - socket: module that allows the usage of sockets within the code.
+    
     - random: module  that lets random selection from the given lists in the code. 
+    
     - ssl: module for TLS/SSL wrapper for socket objects. Needed to allow TLS encryption socket connection. 
 
 
