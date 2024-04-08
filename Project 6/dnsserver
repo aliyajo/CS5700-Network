@@ -1,0 +1,22 @@
+import argparse
+
+
+class DNSServer:
+    def __init__(self, args):
+        self.server = 'cdn-dns.khoury.northeastern.edu'
+        self.port = args.port
+        self.name = args.name
+
+def run():
+    print("Hello from dnsserver")
+    print("Port: ", server.port)
+    print("Name: ", server.name)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="dnsserver")
+    parser.add_argument('-p', dest="port", type=int, help='Port to bind to')
+    parser.add_argument('-n', dest="name", type=str, help='CDN-specific name of server')
+    args = parser.parse_args()
+    server = DNSServer(args)
+    run()
+
