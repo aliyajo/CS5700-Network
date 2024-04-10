@@ -3,6 +3,7 @@ import argparse
 import dnslib
 import socket
 import geocoder
+import requests
 from haversine import haversine
 
 edge_servers = {
@@ -25,8 +26,11 @@ class DNSServer:
         '''
         This is a constructor for the DNSServer class.
         '''
+        # Port number to bind to, got from parsed argument
         self.port = args.port
+        # Range of points have access to
         self.ports = range(20040, 20050)
+        # CDN name, got from parsed argument
         self.name = args.name
         self.ip = None
         self.cache = {}
@@ -43,12 +47,15 @@ class DNSServer:
         '''
         # Figuring out coordinates for each replica server
         coordinates = {}
+        # Iterate through edge_servers, and determine the coordinates for each
         for name, ip in edge_servers.items():
             g = geocoder.ip(ip)
+            # Add these coordinates to the dictionary
             coordinates[ip] = {
                 'lat': g.lat,
                 'long': g.lng
             }
+
         # Now, calculate which of these is closer to the given addr coordinates
         addr_coord = geocoder.ip(addr)
         # Calculate the distance between the current address and the replica servers
@@ -77,6 +84,58 @@ class DNSServer:
             if coord['distance'] < coordinates[closest_server]['distance']:
                 closest_server = ip
         return closest_server
+
+    def active_measurement_best_server(self):
+        '''
+        This function is taking an active approach when it comes to
+        determining the best replica server.
+        This involves:
+            - Sending message to each replica server asking for performance metrics
+            - Determine the best server based on the performance metrics
+        '''
+        performance_metrics = {}
+        for name, ip in edge_servers.items():
+            url = f"http://{name}:{self.port}/get_server_info"
+            try:
+                response = requests.get(url)
+                performance_metrics[ip] = response.json()
+            except requests.exceptions.RequestException as e:
+                print(f"Error connecting to {ip}: {e}")
+        print(performance_metrics)
+        # url = f"http://cdn-http3.khoury.northeastern.edu:{self.port}/get_server_info"
+        # performance_metrics = {}
+        # try:
+        #     response = requests.get(url, timeout=5)
+        #     response.raise_for_status()
+        #     performance_metrics["hi"] = response.json()
+        # except Exception as e:
+        #     print(e)
+        # print(performance_metrics)
+        # # Determine the best server based on the performance metrics
+        # best_server = min(performance_metrics, key=performance_metrics.get)
+        # return best_server
+        # # Creating a list of the ports available, remove the one currently using
+        # ports_copy = [i for i in self.ports if i != self.port]
+        # # Now want to use the ports to send a message to each replica server
+        # ports_index = 0
+        # for name, ip in edge_servers.items():
+        #     port = ports_copy[ports_index]
+        #     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        #     sock.bind((ip, port))
+        #     try:
+        #         # Send the performance metrics request
+        #         sock.sendto(b"PERFORMANCE_METRICS", (ip, port))
+        #         # Receive the metrics
+        #         metrics, addr = sock.recvfrom(1024)
+        #         # Print the metrics
+        #         print(metrics)
+        #     except Exception as e:
+        #         print(e)
+        #     finally:
+        #         sock.close()
+
+
+        
 
     # # TODO: Implement this for performance reasons, keep it simple before
     # # Look at Piazza Post @291, some hints on how to do so
@@ -123,6 +182,7 @@ class DNSServer:
         '''
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.bind(('', self.port))
+        # self.active_measurement_best_server()
         try:
             data, addr = s.recvfrom(1024)
             # Determine the local address
