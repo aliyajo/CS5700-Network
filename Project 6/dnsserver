@@ -1,22 +1,165 @@
+#!/usr/bin/env python3
 import argparse
+import dnslib
+import socket
+import geocoder
+from haversine import haversine
 
-
+edge_servers = {
+    'cdn-http3.khoury.northeastern.edu': '45.33.55.171', 
+    'cdn-http4.khoury.northeastern.edu': '170.187.142.220', 
+    'cdn-http7.khoury.northeastern.edu': '213.168.249.157', 
+    'cdn-http11.khoury.northeastern.edu': '139.162.82.207', 
+    'cdn-http14.khoury.northeastern.edu': '45.79.124.209', 
+    'cdn-http15.khoury.northeastern.edu': '192.53.123.145', 
+    'cdn-http16.khoury.northeastern.edu': '192.46.221.203',
+}
 class DNSServer:
+    '''
+    This class represents the DNS server.
+    Should be able to dynamically return IP addresses based on the
+    specified mapping code. 
+        This mapping code is a system that maps IPs to nearby replica servers.
+    '''
     def __init__(self, args):
-        self.server = 'cdn-dns.khoury.northeastern.edu'
+        '''
+        This is a constructor for the DNSServer class.
+        '''
         self.port = args.port
+        self.ports = range(20040, 20050)
         self.name = args.name
+        self.ip = None
+        self.cache = {}
+    
+    def determining_corrdinates(self, addr):
+        '''
+        This is a helper function that helps establish a dictionary
+        that contains information on the replica server's coordinates. 
+        Also includes the distance from the given address.
+        Params:
+            @addr: The address of the client
+        Returns:
+            A dictionary containing the coordinates and distances
+        '''
+        # Figuring out coordinates for each replica server
+        coordinates = {}
+        for name, ip in edge_servers.items():
+            g = geocoder.ip(ip)
+            coordinates[ip] = {
+                'lat': g.lat,
+                'long': g.lng
+            }
+        # Now, calculate which of these is closer to the given addr coordinates
+        addr_coord = geocoder.ip(addr)
+        # Calculate the distance between the current address and the replica servers
+        for ip, coord in coordinates.items():
+            distance = haversine((coord['lat'], coord['long']), (addr_coord.lat, addr_coord.lng))
+            # Add this calculated distance to the dictionary
+            coordinates[ip]['distance'] = distance
+        # Return the dictionary
+        return coordinates
 
-def run():
-    print("Hello from dnsserver")
-    print("Port: ", server.port)
-    print("Name: ", server.name)
+    def geographically_best_server(self, addr):
+        '''
+        This function is responsible for determining the 
+        best replica server geographically.
+        Params:
+            @addr: The address of the client
+        Returns:
+            The closest server
+        '''
+        # Determine the coordinates
+        coordinates = self.determining_corrdinates(addr)
+        # Hardcoding random replica server to start
+        closest_server = '45.33.55.171'
+        # Iterate through the coordinates and determine the closest server
+        for ip, coord in coordinates.items():
+            if coord['distance'] < coordinates[closest_server]['distance']:
+                closest_server = ip
+        return closest_server
+
+    # # TODO: Implement this for performance reasons, keep it simple before
+    # # Look at Piazza Post @291, some hints on how to do so
+    # def active_measurement_best_server(self):
+    #     '''
+    #     This function is taking an active approach when it comes to
+    #     determining the best replica server.
+    #     This involves:
+    #         - Ping from all replica servers
+    #         - Determine the best server based on the ping
+    #     '''
+    #     port_index = 0
+    #     # Create a copy of the ranges of ports
+    #     ports_copy = []
+    #     for i in self.ports:
+    #         ports_copy.append(i)
+    #     # Remove the current port from the list
+    #     if self.port in self.ports:
+    #         ports_copy.remove(self.port)
+    #     # Iterate through our replica servers
+    #     for name, ip in edge_servers.items():
+    #         # Iterate through the ports
+    #         port = ports_copy[port_index]
+    #         # print(name)
+    #         # print(port)
+    #         # print(ip)
+    #         port_index += 1
+    #         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    #         try:
+    #             # Send the performance metrics request
+    #             sock.sendto(b"PERFORMANCE_METRICS", (ip, port))
+    #             # Receive the metrics
+    #             metrics, addr = sock.recvfrom(1024)
+    #             # Print the metrics
+    #             print(metrics)
+    #         except Exception as e:
+    #             print(e)
+    #         finally:
+    #             sock.close()
+
+    def run(self):
+        '''
+        This is the main running function for the DNS server.
+        '''
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.bind(('', self.port))
+        try:
+            data, addr = s.recvfrom(1024)
+            # Determine the local address
+            local_addr = addr[0]
+            # Isolate the request
+            request = dnslib.DNSRecord.parse(data)
+            # Determine if the request if an A record
+            # Also determine if the request is for the correct name
+            if request.q.qname == self.name and request.q.qtype == dnslib.QTYPE.A:
+                # Determine the best server, geographically based
+                best_addr = self.geographically_best_server(local_addr)
+                ## best_addr = self.active_measurement_best_server()
+                # Draft the response
+                response = request.reply()
+                response.add_answer(
+                    dnslib.RR(
+                        request.q.qname, 
+                        dnslib.QTYPE.A,
+                        ttl=300, 
+                        rdata=dnslib.A(best_addr)))
+                # Send the response
+                s.sendto(response.pack(), addr)
+        except Exception as e:
+            print(e)
+        # Close the socket
+        finally:
+            s.close()
+        
 
 if __name__ == "__main__":
+    # Parse the correct arguments
     parser = argparse.ArgumentParser(description="dnsserver")
-    parser.add_argument('-p', dest="port", type=int, help='Port to bind to')
-    parser.add_argument('-n', dest="name", type=str, help='CDN-specific name of server')
+    # Parsing for the port number, required argument
+    parser.add_argument('-p', dest="port", type=int, required=True, help='Port to bind to')
+    # Parsing for the CDN-specific name of the server, required argument
+    parser.add_argument('-n', dest="name", type=str, required=True, help='CDN-specific name of server')
     args = parser.parse_args()
     server = DNSServer(args)
-    run()
+    server.run()
 
