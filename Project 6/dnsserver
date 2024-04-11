@@ -184,8 +184,8 @@ class DNSServer:
                 # Also determine if the request is for the correct name
                 if request.q.qname == self.name and request.q.qtype == dnslib.QTYPE.A:
                     # Determine the best server, geographically based
-                    best_addr = self.geographically_best_server(local_addr)
-                    # best_addr = self.active_measurement_best_server()
+                    # best_addr = self.geographically_best_server(local_addr)
+                    best_addr = self.active_measurement_best_server()
                     # Draft the response
                     response = request.reply()
                     response.add_answer(
