@@ -1,0 +1,90 @@
+#! /usr/bin/env python
+
+import argparse
+import subprocess
+
+'''
+$ ./runCDN [-p port] [-o origin] [-n name] [-u username] [-i keyfile]
+
+EXAMPLE: `python3 ./runCDN -p 20380 -o cs5700cdnorigin.ccs.neu.edu -n cs5700cdn.example.com -u quach.l -i keys/ssh-ed25519-quach.l.priv`
+
+port, origin, and name are the same as above. username is the account name you
+use for logging in and keyfile is the path to the private key you use for
+logging into nodes. Your scripts should use the last two arguments as follows: 
+
+$ ssh -i keyfile username@<some cloud server> ...
+'''
+
+# domain name & IP address of HTTP cache servers
+REPLICA_SERVERS = {
+    'cdn-http3.khoury.northeastern.edu': '45.33.55.171',
+    'cdn-http4.khoury.northeastern.edu': '170.187.142.220', 
+    'cdn-http7.khoury.northeastern.edu': '213.168.249.157', 
+    'cdn-http11.khoury.northeastern.edu': '139.162.82.207', 
+    'cdn-http14.khoury.northeastern.edu': '45.79.124.209', 
+    'cdn-http15.khoury.northeastern.edu': '192.53.123.145', 
+    'cdn-http16.khoury.northeastern.edu': '192.46.221.203',
+}
+
+def parse_args():
+    '''
+    Parses command line arguments.
+    '''
+    parser = argparse.ArgumentParser(description='Run CDN')
+    parser.add_argument('-p', '--port', required=True, type=int, help='Port number to bind HTTP server to')
+    parser.add_argument('-o', '--origin', required=True, type=str, help='Origin server to fetch content from')
+    parser.add_argument('-n', '--name', required=True, type=str, help='CDN-specific name to translate')
+    parser.add_argument('-u', '--username', required=True, type=str, help='Username for logging into cloud servers')
+    parser.add_argument('-i', '--keyfile', required=True, type=str, help='Path to private key for logging into cloud servers')
+    return parser.parse_args()
+
+
+def run_http_server(port, origin, http_server_name, username, keyfile):
+    '''
+    Runs the HTTP server on specified replica server.
+    '''
+    # automate ssh to server and run the server script
+    # `python3 httpserver -p 20380 -o cs5700cdnorigin.ccs.neu.edu`
+    # `ssh -i ssh-ed25519-quach.l.priv quach.l@cdn-http3.khoury.northeastern.edu``
+    ssh_command = [
+            "ssh",
+            "-i", keyfile,
+            f"{username}@{http_server_name}",
+            f"nohup python3 httpserver -p {port} -o {origin} &"
+
+            # un-comment this command if you want to install psutil
+            # f"pip install psutil &"
+    ]
+    subprocess.run(ssh_command)
+    print(f"** ssh HTTP server on {http_server_name} ** ")
+
+
+def run_dns_server(port, name, dns_server_name, username, keyfile):
+    '''
+    Runs the DNS server on specified replica server.
+    '''
+    # `python3 dnsserver -p 20380 -n cs5700cdn.example.com`
+    # `ssh -i ssh-ed25519-quach.l.priv quach.l@cdn-dns.khoury.northeastern.edu`
+    ssh_command = [
+            "ssh",
+            "-i", keyfile,
+            f"{username}@cdn-dns.khoury.northeastern.edu",
+            f"nohup python3 dnsserver -p {port} -n {name} &"
+    ]
+    subprocess.run(ssh_command)
+    print(f"** ssh DNS server on {dns_server_name} ** ")
+
+
+def main():
+    args = parse_args()
+    print(args)
+    
+    # run HTTP server on each replica server
+    for server in REPLICA_SERVERS:
+        run_http_server(args.port, args.origin, REPLICA_SERVERS[server], args.username, args.keyfile)
+
+    # run DNS server on the dns server
+    run_dns_server(args.port, args.name, 'cdn-dns.khoury.northeastern.edu', args.username, args.keyfile)
+
+if __name__ == '__main__':
+    main()
