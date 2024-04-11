@@ -36,6 +36,56 @@ class DNSServer:
         self.ip = None
         self.cache = {}
 
+    def determining_corrdinates(self, addr):
+        '''
+        This is a helper function that helps establish a dictionary
+        that contains information on the replica server's coordinates. 
+        Also includes the distance from the given address.
+        Params:
+            @addr: The address of the client
+        Returns:
+            A dictionary containing the coordinates and distances
+        '''
+        # Figuring out coordinates for each replica server
+        coordinates = {}
+        # Iterate through edge_servers, and determine the coordinates for each
+        for name, ip in edge_servers.items():
+            g = geocoder.ip(ip)
+            # Add these coordinates to the dictionary
+            coordinates[ip] = {
+                'lat': g.lat,
+                'long': g.lng
+            }
+
+        # Now, calculate which of these is closer to the given addr coordinates
+        addr_coord = geocoder.ip(addr)
+        # Calculate the distance between the current address and the replica servers
+        for ip, coord in coordinates.items():
+            distance = haversine((coord['lat'], coord['long']), (addr_coord.lat, addr_coord.lng))
+            # Add this calculated distance to the dictionary
+            coordinates[ip]['distance'] = distance
+        # Return the dictionary
+        return coordinates
+
+    def geographically_best_server(self, addr):
+        '''
+        This function is responsible for determining the 
+        best replica server geographically.
+        Params:
+            @addr: The address of the client
+        Returns:
+            The closest server
+        '''
+        # Determine the coordinates
+        coordinates = self.determining_corrdinates(addr)
+        # Hardcoding random replica server to start
+        closest_server = '45.33.55.171'
+        # Iterate through the coordinates and determine the closest server
+        for ip, coord in coordinates.items():
+            if coord['distance'] < coordinates[closest_server]['distance']:
+                closest_server = ip
+        return closest_server
+
     def active_measurement_best_server(self):
         '''
         This function is taking an active approach when it comes to
@@ -127,13 +177,15 @@ class DNSServer:
         try:
             while True:
                 data, addr = s.recvfrom(1024)
+                local_addr = addr[0]
                 # Isolate the request
                 request = dnslib.DNSRecord.parse(data)
                 # Determine if the request if an A record
                 # Also determine if the request is for the correct name
                 if request.q.qname == self.name and request.q.qtype == dnslib.QTYPE.A:
                     # Determine the best server, geographically based
-                    best_addr = self.active_measurement_best_server()
+                    best_addr = self.geographically_best_server(local_addr)
+                    # best_addr = self.active_measurement_best_server()
                     # Draft the response
                     response = request.reply()
                     response.add_answer(
