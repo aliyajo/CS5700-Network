@@ -35,7 +35,7 @@ class DNSServer:
         self.name = args.name
         self.ip = None
         self.cache = {}
-        
+
     def active_measurement_best_server(self):
         '''
         This function is taking an active approach when it comes to
@@ -48,7 +48,7 @@ class DNSServer:
         performance_metrics = {}
         # Iterate through each replica server
         for name, ip in edge_servers.items():
-            p = subprocess.Popen(['ping', '-c', '2', ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            p = subprocess.Popen(['ping', '-c', '1', ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = p.communicate()
             out = out.decode('utf-8')
             metrics = self.extract_ping_metrics(out)
