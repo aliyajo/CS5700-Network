@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import subprocess
 import dnslib
 import socket
 import geocoder
@@ -34,57 +35,7 @@ class DNSServer:
         self.name = args.name
         self.ip = None
         self.cache = {}
-    
-    def determining_corrdinates(self, addr):
-        '''
-        This is a helper function that helps establish a dictionary
-        that contains information on the replica server's coordinates. 
-        Also includes the distance from the given address.
-        Params:
-            @addr: The address of the client
-        Returns:
-            A dictionary containing the coordinates and distances
-        '''
-        # Figuring out coordinates for each replica server
-        coordinates = {}
-        # Iterate through edge_servers, and determine the coordinates for each
-        for name, ip in edge_servers.items():
-            g = geocoder.ip(ip)
-            # Add these coordinates to the dictionary
-            coordinates[ip] = {
-                'lat': g.lat,
-                'long': g.lng
-            }
-
-        # Now, calculate which of these is closer to the given addr coordinates
-        addr_coord = geocoder.ip(addr)
-        # Calculate the distance between the current address and the replica servers
-        for ip, coord in coordinates.items():
-            distance = haversine((coord['lat'], coord['long']), (addr_coord.lat, addr_coord.lng))
-            # Add this calculated distance to the dictionary
-            coordinates[ip]['distance'] = distance
-        # Return the dictionary
-        return coordinates
-
-    def geographically_best_server(self, addr):
-        '''
-        This function is responsible for determining the 
-        best replica server geographically.
-        Params:
-            @addr: The address of the client
-        Returns:
-            The closest server
-        '''
-        # Determine the coordinates
-        coordinates = self.determining_corrdinates(addr)
-        # Hardcoding random replica server to start
-        closest_server = '45.33.55.171'
-        # Iterate through the coordinates and determine the closest server
-        for ip, coord in coordinates.items():
-            if coord['distance'] < coordinates[closest_server]['distance']:
-                closest_server = ip
-        return closest_server
-
+        
     def active_measurement_best_server(self):
         '''
         This function is taking an active approach when it comes to
@@ -93,88 +44,78 @@ class DNSServer:
             - Sending message to each replica server asking for performance metrics
             - Determine the best server based on the performance metrics
         '''
+        # Dictionary for storing the performance metrics
         performance_metrics = {}
+        # Iterate through each replica server
         for name, ip in edge_servers.items():
-            url = f"http://{name}:{self.port}/get_server_info"
-            try:
-                response = requests.get(url)
-                performance_metrics[ip] = response.json()
-            except requests.exceptions.RequestException as e:
-                print(f"Error connecting to {ip}: {e}")
-        print(performance_metrics)
-        # url = f"http://cdn-http3.khoury.northeastern.edu:{self.port}/get_server_info"
-        # performance_metrics = {}
-        # try:
-        #     response = requests.get(url, timeout=5)
-        #     response.raise_for_status()
-        #     performance_metrics["hi"] = response.json()
-        # except Exception as e:
-        #     print(e)
-        # print(performance_metrics)
-        # # Determine the best server based on the performance metrics
-        # best_server = min(performance_metrics, key=performance_metrics.get)
-        # return best_server
-        # # Creating a list of the ports available, remove the one currently using
-        # ports_copy = [i for i in self.ports if i != self.port]
-        # # Now want to use the ports to send a message to each replica server
-        # ports_index = 0
-        # for name, ip in edge_servers.items():
-        #     port = ports_copy[ports_index]
-        #     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        #     sock.bind((ip, port))
-        #     try:
-        #         # Send the performance metrics request
-        #         sock.sendto(b"PERFORMANCE_METRICS", (ip, port))
-        #         # Receive the metrics
-        #         metrics, addr = sock.recvfrom(1024)
-        #         # Print the metrics
-        #         print(metrics)
-        #     except Exception as e:
-        #         print(e)
-        #     finally:
-        #         sock.close()
-
-
+            p = subprocess.Popen(['ping', '-c', '2', ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = p.communicate()
+            out = out.decode('utf-8')
+            metrics = self.extract_ping_metrics(out)
+            performance_metrics[ip] = metrics
         
+        # Determine the best server based on the performance metrics
+        best_server = self.comparing_servers(performance_metrics)
+        return best_server
 
-    # # TODO: Implement this for performance reasons, keep it simple before
-    # # Look at Piazza Post @291, some hints on how to do so
-    # def active_measurement_best_server(self):
-    #     '''
-    #     This function is taking an active approach when it comes to
-    #     determining the best replica server.
-    #     This involves:
-    #         - Ping from all replica servers
-    #         - Determine the best server based on the ping
-    #     '''
-    #     port_index = 0
-    #     # Create a copy of the ranges of ports
-    #     ports_copy = []
-    #     for i in self.ports:
-    #         ports_copy.append(i)
-    #     # Remove the current port from the list
-    #     if self.port in self.ports:
-    #         ports_copy.remove(self.port)
-    #     # Iterate through our replica servers
-    #     for name, ip in edge_servers.items():
-    #         # Iterate through the ports
-    #         port = ports_copy[port_index]
-    #         # print(name)
-    #         # print(port)
-    #         # print(ip)
-    #         port_index += 1
-    #         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    #         try:
-    #             # Send the performance metrics request
-    #             sock.sendto(b"PERFORMANCE_METRICS", (ip, port))
-    #             # Receive the metrics
-    #             metrics, addr = sock.recvfrom(1024)
-    #             # Print the metrics
-    #             print(metrics)
-    #         except Exception as e:
-    #             print(e)
-    #         finally:
-    #             sock.close()
+    def comparing_servers(self, performance_metrics):
+        '''
+        This is a helper function that compares the replica servers based on the given
+        performance metrics.
+        Params:
+            @performance_metrics: The dictionary containing the performance metrics
+        Returns:
+            The best server
+        '''
+        # Establishing variables used for comparison
+        best_server = None
+        lowest_packet_loss = float('inf')
+        lowest_avg_rtt = float('inf')
+        # Iterate through the performance metrics
+        for ip, metrics in performance_metrics.items():
+            # Extract the metrics
+            packet_loss = metrics['packet_loss']
+            avg_rtt = metrics['avg_rtt']
+            # First, lets look at if the packet loss is the lowest
+            # If it is, then we have a new best server
+            if packet_loss < lowest_packet_loss:
+                lowest_packet_loss = packet_loss
+                best_server = ip
+            # If the next server has the same percentage,
+            # will then compare the rtt metric
+            elif packet_loss == lowest_packet_loss:
+                # If the rtt is lower, then we have a new best server
+                if avg_rtt < lowest_avg_rtt:
+                    lowest_avg_rtt = avg_rtt
+                    best_server = ip
+        return best_server
+
+    def extract_ping_metrics(self, out):
+        '''
+        This is a helper function that is responsible for extracting the metrics from the ping command.
+        Want the rtt average time and the packet loss percentage from the ping statistics.
+        Params:
+            @out: The output from the ping command
+        Returns:
+            A dictionary containing the metrics
+        '''
+        metrics = {}
+        # Split the output by newline
+        for l in out.split('\n'):
+            # If the line contains the word 
+            if 'packets transmitted' in l:
+                # Split the line by spaces
+                l = l.split(' ')
+                # Extract the percentage
+                metrics['packet_loss'] = int(l[5].replace('%', ''))
+            if 'rtt' in l:
+                # Split the line by spaces
+                l = l.split(' ')
+                # Split again by '/'
+                l = l[3].split('/')
+                # Extract the rtt avg time, metric is in ms
+                metrics['avg_rtt'] = float(l[1])
+        return metrics
 
     def run(self):
         '''
@@ -182,29 +123,27 @@ class DNSServer:
         '''
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.bind(('', self.port))
-        # self.active_measurement_best_server()
+        
         try:
-            data, addr = s.recvfrom(1024)
-            # Determine the local address
-            local_addr = addr[0]
-            # Isolate the request
-            request = dnslib.DNSRecord.parse(data)
-            # Determine if the request if an A record
-            # Also determine if the request is for the correct name
-            if request.q.qname == self.name and request.q.qtype == dnslib.QTYPE.A:
-                # Determine the best server, geographically based
-                best_addr = self.geographically_best_server(local_addr)
-                ## best_addr = self.active_measurement_best_server()
-                # Draft the response
-                response = request.reply()
-                response.add_answer(
-                    dnslib.RR(
-                        request.q.qname, 
-                        dnslib.QTYPE.A,
-                        ttl=300, 
-                        rdata=dnslib.A(best_addr)))
-                # Send the response
-                s.sendto(response.pack(), addr)
+            while True:
+                data, addr = s.recvfrom(1024)
+                # Isolate the request
+                request = dnslib.DNSRecord.parse(data)
+                # Determine if the request if an A record
+                # Also determine if the request is for the correct name
+                if request.q.qname == self.name and request.q.qtype == dnslib.QTYPE.A:
+                    # Determine the best server, geographically based
+                    best_addr = self.active_measurement_best_server()
+                    # Draft the response
+                    response = request.reply()
+                    response.add_answer(
+                        dnslib.RR(
+                            request.q.qname, 
+                            dnslib.QTYPE.A,
+                            ttl=300, 
+                            rdata=dnslib.A(best_addr)))
+                    # Send the response
+                    s.sendto(response.pack(), addr)
         except Exception as e:
             print(e)
         # Close the socket
