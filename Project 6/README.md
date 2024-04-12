@@ -6,6 +6,10 @@
 - https://scoutapm.com/blog/understanding-load-averages
 - https://stackoverflow.com/questions/28385922/why-does-subprocess-not-return-anything-when-pinging-a-server-on-python 
 
+
+
+
+
 - https://pythonbasics.org/webserver/
 - https://pypi.org/project/dnslib/
 - https://github.com/paulc/dnslib
