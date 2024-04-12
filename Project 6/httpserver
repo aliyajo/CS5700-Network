@@ -30,7 +30,22 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             self.send_response(204)
             self.end_headers()
             return
-
+        # for path `/get_server_info` return server metrics
+        if self.path == '/get_server_info':
+            # Determine server metrics
+            load_avg = os.getloadavg()
+            cpu_percent = psutil.cpu_percent()
+            # create dictionary with server metrics
+            server_info = {
+                'cpu_percent': cpu_percent,
+                'load_average': load_avg,
+            }
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            # send server metrics to client in JSON format
+            self.wfile.write(json.dumps(server_info).encode())
+            return
         # check if path is in cache
         if self.path in self.cache:
             content, content_type, status_code = self.cache[self.path]
@@ -58,27 +73,6 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
                 self.send_error(500, 'Internal server error')
                 print(f' ** ERROR: {e} ** ')
             return
-        
-        # [old code for potential dns & http communication] 
-        # for path `/get_server_info` return server metrics
-        # elif self.path == '/get_server_info':
-        #     cpu_percent = psutil.cpu_percent()
-        #     memory_info = psutil.virtual_memory()
-        #     load_avg = os.getloadavg()
-
-        #     server_info = {
-        #         'cpu_percent': cpu_percent,
-        #         'memory_used_percent': memory_info.percent,
-        #         'memory_total': memory_info.total,
-        #         'load_average': load_avg,
-        #     }
-        #     self.send_response(200)
-        #     self.send_header('Content-type', 'application/json')
-        #     self.end_headers()
-        #     # send server metrics to client in JSON format
-        #     self.wfile.write(json.dumps(server_info).encode())
-        #     return
-
 
     def send_content(self, content, content_type, from_cache=False, status_code=200):
         '''
