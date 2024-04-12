@@ -6,16 +6,20 @@ import os
 import psutil
 import urllib.request
 from collections import OrderedDict
-
+import zlib
 
 ORIGIN_SERVER = 'cs5700cdnorigin.ccs.neu.edu' 
 ORIGIN_SERVER_PORT = 8080
 
 
-# basic implementation of proxy server (pass thru)
 class HTTPRequestHandler(BaseHTTPRequestHandler):
+    '''
+    HTTP request handler class.
+    '''
+    # ordered dictionary to store cache content in LRU order
     cache = OrderedDict()
     cache_size = 20
+
 
     def do_GET(self):
         '''
@@ -26,30 +30,11 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             self.send_response(204)
             self.end_headers()
             return
-        
-        # for path `/get_server_info` return server metrics
-        elif self.path == '/get_server_info':
-            cpu_percent = psutil.cpu_percent()
-            memory_info = psutil.virtual_memory()
-            load_avg = os.getloadavg()
-
-            server_info = {
-                'cpu_percent': cpu_percent,
-                'memory_used_percent': memory_info.percent,
-                'memory_total': memory_info.total,
-                'load_average': load_avg,
-            }
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            # send server metrics to client in JSON format
-            self.wfile.write(json.dumps(server_info).encode())
-            return
 
         # check if path is in cache
         if self.path in self.cache:
-            content, content_type = self.cache[self.path]
-            self.send_content(content, content_type)
+            content, content_type, status_code = self.cache[self.path]
+            self.send_content(content, content_type, from_cache=True, status_code=status_code)
             return
         
         # fetch data from origin server
@@ -63,6 +48,9 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
                     self.send_content(content, content_type)
 
             except urllib.error.HTTPError as e:
+                # cache 404 status code, & send status to client
+                if e.code == 404:
+                    self.cache_content(self.path, b'', 'text/html', status_code=404)
                 self.send_error(e.code, e.reason)
             except urllib.error.URLError as e:
                 self.send_error(502, '** Failed to fetch data from origin server **')
@@ -70,20 +58,63 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
                 self.send_error(500, 'Internal server error')
                 print(f' ** ERROR: {e} ** ')
             return
+        
+        # [old code for potential dns & http communication] 
+        # for path `/get_server_info` return server metrics
+        # elif self.path == '/get_server_info':
+        #     cpu_percent = psutil.cpu_percent()
+        #     memory_info = psutil.virtual_memory()
+        #     load_avg = os.getloadavg()
 
-    def send_content(self, content, content_type):
+        #     server_info = {
+        #         'cpu_percent': cpu_percent,
+        #         'memory_used_percent': memory_info.percent,
+        #         'memory_total': memory_info.total,
+        #         'load_average': load_avg,
+        #     }
+        #     self.send_response(200)
+        #     self.send_header('Content-type', 'application/json')
+        #     self.end_headers()
+        #     # send server metrics to client in JSON format
+        #     self.wfile.write(json.dumps(server_info).encode())
+        #     return
+
+
+    def send_content(self, content, content_type, from_cache=False, status_code=200):
         '''
-        Sends cached content to client.
+        Sends content to client with appropriate headers and status code.
         '''
-        self.send_response(200)
+        # check if client accepts gzip encoding
+        accept_encoding = self.headers.get('Accept-encoding', '')
+        if 'gzip' in accept_encoding:
+            # compress content & set content-encoding header
+            content = zlib.compress(content)
+            self.send_header('Content-encoding', 'gzip')
+
+        # send status code & content type headers
+        self.send_response(status_code)
         self.send_header('Content-type', content_type)
+        
+        # send cache status header
+        if from_cache:
+            self.send_header('X-Cache', 'HIT')
+            print(f' ** Cache HIT: {self.path} ** ')
+        else:
+            self.send_header('X-Cache', 'MISS')
+            print(f' ** Cache MISS: {self.path} ** ')
+        
         self.end_headers()
-        # send cached content to client
-        self.wfile.write(content)
+        
+        # send content to client, if not 404 (no content to send)
+        if status_code != 404:
+            self.wfile.write(content)
 
-    def cache_content(self, path, content, content_type):
+
+    def cache_content(self, path, content, content_type, status_code=200):
         '''
-        Caches content in server cache.
+        Caches content and status codes in server cache. Removes least recently
+        accessed content if cache is full, and refreshes cache if content is
+        already present.
         '''
         if path in self.cache:
             # refresh cache by moving most recently accessed content to end
@@ -92,7 +123,8 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             if len(self.cache) >= self.cache_size:
                 # remove least recently accessed content from cache
                 self.cache.popitem(last=False)
-        self.cache[path] = (content, content_type)
+        self.cache[path] = (content, content_type, status_code)
+
 
 def run_http_server(port, origin_server):
     '''
