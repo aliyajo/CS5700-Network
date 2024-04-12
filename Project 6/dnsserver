@@ -3,12 +3,17 @@ import argparse
 import subprocess
 import dnslib
 import socket
+import geoip2
+import geoip2.database
+import geoip2.webservice
 import geocoder
-import requests
 from haversine import haversine
+import time
+
+import requests
 
 edge_servers = {
-    'cdn-http3.khoury.northeastern.edu': '45.33.55.171', 
+    'cdn-http3.khoury.northeastern.edu': '45.33.55.171',  
     'cdn-http4.khoury.northeastern.edu': '170.187.142.220', 
     'cdn-http7.khoury.northeastern.edu': '213.168.249.157', 
     'cdn-http11.khoury.northeastern.edu': '139.162.82.207', 
@@ -16,6 +21,44 @@ edge_servers = {
     'cdn-http15.khoury.northeastern.edu': '192.53.123.145', 
     'cdn-http16.khoury.northeastern.edu': '192.46.221.203',
 }
+
+edge_servers_locations = {
+    '45.33.55.171': 
+ {
+    'lat': 37.5625, 
+    'long': -122.0004, 
+    'country': 'US'}, 
+ '170.187.142.220': 
+ {
+    'lat': 33.7485, 
+    'long': -84.3871, 
+    'country': 'US'}, 
+ '213.168.249.157': 
+ {
+    'lat': 51.5074, 
+    'long': -0.1196, 
+    'country': 'GB'}, 
+ '139.162.82.207': 
+ {
+    'lat': 35.6893, 
+    'long': 139.6899, 
+    'country': 'JP'}, 
+ '45.79.124.209': 
+ {
+     'lat': 19.0748, 
+     'long': 72.8856, 
+     'country': 'IN'}, 
+ '192.53.123.145': 
+ {
+    'lat': 43.6547, 
+    'long': -79.3623, 
+    'country': 'CA'}, 
+ '192.46.221.203': 
+ {
+    'lat': -33.8715, 
+    'long': 151.2006, 
+    'country': 'AU'}
+ }
 class DNSServer:
     '''
     This class represents the DNS server.
@@ -36,7 +79,7 @@ class DNSServer:
         self.ip = None
         self.cache = {}
 
-    def determining_corrdinates(self, addr):
+    def determining_coordinates(self, addr):
         '''
         This is a helper function that helps establish a dictionary
         that contains information on the replica server's coordinates. 
@@ -46,26 +89,39 @@ class DNSServer:
         Returns:
             A dictionary containing the coordinates and distances
         '''
-        # Figuring out coordinates for each replica server
-        coordinates = {}
-        # Iterate through edge_servers, and determine the coordinates for each
-        for name, ip in edge_servers.items():
-            g = geocoder.ip(ip)
-            # Add these coordinates to the dictionary
-            coordinates[ip] = {
-                'lat': g.lat,
-                'long': g.lng
-            }
+        with geoip2.database.Reader("GeoLite2-City.mmdb") as reader:
+            addr_coord = reader.city(addr)
 
-        # Now, calculate which of these is closer to the given addr coordinates
-        addr_coord = geocoder.ip(addr)
         # Calculate the distance between the current address and the replica servers
-        for ip, coord in coordinates.items():
-            distance = haversine((coord['lat'], coord['long']), (addr_coord.lat, addr_coord.lng))
-            # Add this calculated distance to the dictionary
-            coordinates[ip]['distance'] = distance
-        # Return the dictionary
-        return coordinates
+        distances = []
+        distances = [(ip, haversine((coord['lat'], coord['long']), (addr_coord.location.latitude, addr_coord.location.longitude))) for ip, coord in edge_servers_locations.items()]
+        distances.sort(key=lambda x: x[1])
+        return distances
+
+        # # Figuring out coordinates for each replica server
+        # coordinates = {}
+        # # Iterate through edge_servers, and determine the coordinates for each
+        # for name, ip in edge_servers.items():
+        #     g = geocoder.ip(ip)
+        #     # Add a delay to limit the number of requests
+        #     time.sleep(0.1)  # Adjust the delay time as needed
+        #     # Add these coordinates to the dictionary
+        #     coordinates[ip] = {
+        #         'lat': g.lat,
+        #         'long': g.lng,
+        #         'city': g.country,
+        #     }
+        #     print(g.country)
+        # print(coordinates)
+        # # Now, calculate which of these is closer to the given addr coordinates
+        # addr_coord = geocoder.ip(addr)
+        # # Calculate the distance between the current address and the replica servers
+        # for ip, coord in coordinates.items():
+        #     distance = haversine((coord['lat'], coord['long']), (addr_coord.lat, addr_coord.lng))
+        #     # Add this calculated distance to the dictionary
+        #     coordinates[ip]['distance'] = distance
+        # # Return the dictionary
+        # return coordinates
 
     def geographically_best_server(self, addr):
         '''
@@ -77,14 +133,19 @@ class DNSServer:
             The closest server
         '''
         # Determine the coordinates
-        coordinates = self.determining_corrdinates(addr)
-        # Hardcoding random replica server to start
-        closest_server = '45.33.55.171'
-        # Iterate through the coordinates and determine the closest server
-        for ip, coord in coordinates.items():
-            if coord['distance'] < coordinates[closest_server]['distance']:
-                closest_server = ip
-        return closest_server
+        coordinates = self.determining_coordinates(addr)
+        # Check if first element is overloaded
+        for ip, distance in coordinates:
+            if self.check_overloaded(ip):
+                continue
+            else:
+                return ip
+
+    def check_overloaded(self, ip):
+        url = f'http://{ip}:{self.port}/check_load'
+        try:
+            response = requests.get(url)
+            
 
     def active_measurement_best_server(self):
         '''
@@ -183,8 +244,9 @@ class DNSServer:
                 # Determine if the request if an A record
                 # Also determine if the request is for the correct name
                 if request.q.qname == self.name and request.q.qtype == dnslib.QTYPE.A:
+                    # Check 
                     # Determine the best server, geographically based
-                    # best_addr = self.geographically_best_server(local_addr)
+                    print(self.geographically_best_server(local_addr))
                     best_addr = self.active_measurement_best_server()
                     # Draft the response
                     response = request.reply()
