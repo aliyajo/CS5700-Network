@@ -70,14 +70,31 @@ def deploy_dns_server(port, origin, server_name, username, keyfile):
     print(f" ** deploying DNS server to {server_name} ** ")
     subprocess.run(scp_command)
 
+def deploy_geoip_db(keyfile, username, server_name):
+    '''
+    Deploys GeoIP database.
+    '''
+    # example: scp -i keys/ssh-ed25519-quach.l.priv GeoIp2/GeoLite2-City.mmdb quach.l@cdn-dns.khoury.northeastern.edu:~/
+    scp_command = [
+        'scp', 
+        '-i', keyfile,
+        'GeoIp2/GeoLite2-City.mmdb',
+        f"{username}@{server_name}:~/"
+    ]
+    print(f" ** deploying GeoIP database to {server_name} ** ")
+    subprocess.run(scp_command)
+
 def main():
     args = parse_args()
     print(args)
 
+    # deploy http servers
     for server in REPLICA_SERVERS:
         deploy_http_server(args.port, args.origin, REPLICA_SERVERS[server], args.username, args.keyfile)
-
+    # deploy dns server
     deploy_dns_server(args.port, args.origin, args.name, args.username, args.keyfile)
+    # deploy GeoIP database
+    deploy_geoip_db(args.keyfile, args.username, args.name)
 
 if __name__ == '__main__':
     main()
