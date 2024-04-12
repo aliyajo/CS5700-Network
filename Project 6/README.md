@@ -15,7 +15,7 @@
 - `pip install psutil`  <a href="https://pypi.org/project/psutil/">Documentation</a>
 - `pip install haversine` <a href="https://pypi.org/project/haversine/">Documentation</a>
 - `pip install geoip2` <a href="https://pypi.org/project/geoip2/">Documentation</a>
-- 
+- `pip install requests` <a href="https://pypi.org/project/requests/">Documentation</a>
 - 
 
 ## Design & Implementation:
