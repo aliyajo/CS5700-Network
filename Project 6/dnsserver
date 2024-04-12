@@ -1,28 +1,15 @@
 #!/usr/bin/env python3
 import argparse
-import subprocess
 import dnslib
 import socket
 import geoip2
 import geoip2.database
-import geoip2.webservice
-import geocoder
 from haversine import haversine
 import time
 
 import requests
 
-edge_servers = {
-    'cdn-http3.khoury.northeastern.edu': '45.33.55.171',  
-    'cdn-http4.khoury.northeastern.edu': '170.187.142.220', 
-    'cdn-http7.khoury.northeastern.edu': '213.168.249.157', 
-    'cdn-http11.khoury.northeastern.edu': '139.162.82.207', 
-    'cdn-http14.khoury.northeastern.edu': '45.79.124.209', 
-    'cdn-http15.khoury.northeastern.edu': '192.53.123.145', 
-    'cdn-http16.khoury.northeastern.edu': '192.46.221.203',
-}
-
-edge_servers_locations = {
+REPLICA_SERVERS_INFO = {
     '45.33.55.171': 
  {
     'lat': 37.5625, 
@@ -79,154 +66,69 @@ class DNSServer:
         self.ip = None
         self.cache = {}
 
-    def determining_coordinates(self, addr):
-        '''
-        This is a helper function that helps establish a dictionary
-        that contains information on the replica server's coordinates. 
-        Also includes the distance from the given address.
-        Params:
-            @addr: The address of the client
-        Returns:
-            A dictionary containing the coordinates and distances
-        '''
-        with geoip2.database.Reader("GeoLite2-City.mmdb") as reader:
-            addr_coord = reader.city(addr)
 
-        # Calculate the distance between the current address and the replica servers
-        distances = []
-        distances = [(ip, haversine((coord['lat'], coord['long']), (addr_coord.location.latitude, addr_coord.location.longitude))) for ip, coord in edge_servers_locations.items()]
-        distances.sort(key=lambda x: x[1])
-        return distances
-
-        # # Figuring out coordinates for each replica server
-        # coordinates = {}
-        # # Iterate through edge_servers, and determine the coordinates for each
-        # for name, ip in edge_servers.items():
-        #     g = geocoder.ip(ip)
-        #     # Add a delay to limit the number of requests
-        #     time.sleep(0.1)  # Adjust the delay time as needed
-        #     # Add these coordinates to the dictionary
-        #     coordinates[ip] = {
-        #         'lat': g.lat,
-        #         'long': g.lng,
-        #         'city': g.country,
-        #     }
-        #     print(g.country)
-        # print(coordinates)
-        # # Now, calculate which of these is closer to the given addr coordinates
-        # addr_coord = geocoder.ip(addr)
-        # # Calculate the distance between the current address and the replica servers
-        # for ip, coord in coordinates.items():
-        #     distance = haversine((coord['lat'], coord['long']), (addr_coord.lat, addr_coord.lng))
-        #     # Add this calculated distance to the dictionary
-        #     coordinates[ip]['distance'] = distance
-        # # Return the dictionary
-        # return coordinates
-
-    def geographically_best_server(self, addr):
+    def best_server(self, addr):
         '''
         This function is responsible for determining the 
-        best replica server geographically.
+        best replica server.
+        This entails determining the closest server to the client.
+        Then check if the server is overloaded.
         Params:
             @addr: The address of the client
         Returns:
             The closest server
         '''
         # Determine the coordinates
-        coordinates = self.determining_coordinates(addr)
+        coordinates = self.determining_distances(addr)
         # Check if first element is overloaded
         for ip, distance in coordinates:
             if self.check_overloaded(ip):
                 continue
             else:
                 return ip
+    def determining_distances(self, addr):
+        '''
+        This function helps establish a list
+        of distances between the client and the replica servers.
+        Params:
+            @addr: The address of the client
+        Returns:
+            A list containing the distances
+        '''
+        # Using the geoip2 library to determine the coordinates of the address
+        with geoip2.database.Reader("GeoLite2-City.mmdb") as reader:
+            addr_coord = reader.city(addr)
+
+        # Calculate the distance between the current address and the replica servers
+        distances = []
+        distances = [(ip, haversine((coord['lat'], coord['long']), (addr_coord.location.latitude, addr_coord.location.longitude))) for ip, coord in REPLICA_SERVERS_INFO.items()]
+        # Sort the distances, closest is first in the list
+        distances.sort(key=lambda x: x[1])
+        return distances
 
     def check_overloaded(self, ip):
-        url = f'http://{ip}:{self.port}/check_load'
-        
-        response = requests.get(url)
-            
-
-    def active_measurement_best_server(self):
         '''
-        This function is taking an active approach when it comes to
-        determining the best replica server.
-        This involves:
-            - Sending message to each replica server asking for performance metrics
-            - Determine the best server based on the performance metrics
-        '''
-        # Dictionary for storing the performance metrics
-        performance_metrics = {}
-        # Iterate through each replica server
-        for name, ip in edge_servers.items():
-            p = subprocess.Popen(['ping', '-q', '-c', '1', ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            out, err = p.communicate()
-            out = out.decode('utf-8')
-            metrics = self.extract_ping_metrics(out)
-            performance_metrics[ip] = metrics
-        
-        # Determine the best server based on the performance metrics
-        best_server = self.comparing_servers(performance_metrics)
-        return best_server
-
-    def comparing_servers(self, performance_metrics):
-        '''
-        This is a helper function that compares the replica servers based on the given
-        performance metrics.
+        This function is responsible for checking if a server is overloaded.
         Params:
-            @performance_metrics: The dictionary containing the performance metrics
+            @ip: The IP address of the server
         Returns:
-            The best server
+            Boolean if the server is overloaded
         '''
-        # Establishing variables used for comparison
-        best_server = None
-        lowest_packet_loss = float('inf')
-        lowest_avg_rtt = float('inf')
-        # Iterate through the performance metrics
-        for ip, metrics in performance_metrics.items():
-            # Extract the metrics
-            packet_loss = metrics['packet_loss']
-            avg_rtt = metrics['avg_rtt']
-            # First, lets look at if the packet loss is the lowest
-            # If it is, then we have a new best server
-            if packet_loss < lowest_packet_loss:
-                lowest_packet_loss = packet_loss
-                best_server = ip
-            # If the next server has the same percentage,
-            # will then compare the rtt metric
-            elif packet_loss == lowest_packet_loss:
-                # If the rtt is lower, then we have a new best server
-                if avg_rtt < lowest_avg_rtt:
-                    lowest_avg_rtt = avg_rtt
-                    best_server = ip
-        return best_server
-
-    def extract_ping_metrics(self, out):
-        '''
-        This is a helper function that is responsible for extracting the metrics from the ping command.
-        Want the rtt average time and the packet loss percentage from the ping statistics.
-        Params:
-            @out: The output from the ping command
-        Returns:
-            A dictionary containing the metrics
-        '''
+        # URL to get the server info
+        url = f'http://{ip}:{self.port}/get_server_info'
         metrics = {}
-        # Split the output by newline
-        for l in out.split('\n'):
-            # If the line contains the word 
-            if 'packets transmitted' in l:
-                # Split the line by spaces
-                l = l.split(' ')
-                # Extract the percentage
-                metrics['packet_loss'] = int(l[5].replace('%', ''))
-            if 'rtt' in l:
-                # Split the line by spaces
-                l = l.split(' ')
-                # Split again by '/'
-                l = l[3].split('/')
-                # Extract the rtt avg time, metric is in ms
-                metrics['avg_rtt'] = float(l[1])
-        return metrics
+        try:
+            # Send request to the HTTP server
+            response = requests.get(url)
+            metrics[ip] = response.json()
+            # Check if the cpu_percent is greater than 90%
+            # Or if any of the load averages are greater than 1.0
+            if any([load >= 1.0 for load in metrics[ip]['load_average']]) or metrics[ip]['cpu_percent'] >= 90.0:
+                return True
+            else:
+                return False
+        except Exception as e:
+            print(e)
 
     def run(self):
         '''
@@ -244,10 +146,26 @@ class DNSServer:
                 # Determine if the request if an A record
                 # Also determine if the request is for the correct name
                 if request.q.qname == self.name and request.q.qtype == dnslib.QTYPE.A:
-                    # Check 
+                    # Check if in DNS cache
+                    if local_addr in self.cache:
+                        # Check if the cache is still valid
+                        if time.time() - self.cache[local_addr]['time'] < 300:
+                            # Draft the response
+                            response = request.reply()
+                            response.add_answer(
+                                dnslib.RR(
+                                    request.q.qname, 
+                                    dnslib.QTYPE.A,
+                                    ttl=300, 
+                                    rdata=dnslib.A(self.cache[local_addr]['ip'])))
+                            s.sendto(response.pack(), addr)
+                            continue
+                        # If the cache is invalid, remove it
+                        else:
+                            del self.cache[local_addr]
+                            
                     # Determine the best server, geographically based
-                    print(self.geographically_best_server(local_addr))
-                    best_addr = self.active_measurement_best_server()
+                    best_addr = self.best_server(local_addr)
                     # Draft the response
                     response = request.reply()
                     response.add_answer(
@@ -258,6 +176,8 @@ class DNSServer:
                             rdata=dnslib.A(best_addr)))
                     # Send the response
                     s.sendto(response.pack(), addr)
+                    # Update the cache
+                    self.cache[local_addr] = {'ip': best_addr, 'time': time.time()}
         except Exception as e:
             print(e)
         # Close the socket
