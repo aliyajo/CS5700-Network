@@ -6,7 +6,6 @@ import geoip2
 import geoip2.database
 from haversine import haversine
 import time
-
 import requests
 
 REPLICA_SERVERS_INFO = {
@@ -86,6 +85,7 @@ class DNSServer:
                 continue
             else:
                 return ip
+            
     def determining_distances(self, addr):
         '''
         This function helps establish a list
