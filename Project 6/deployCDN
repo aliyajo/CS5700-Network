@@ -1,0 +1,83 @@
+#! /usr/bin/env python
+
+import argparse
+import subprocess
+
+'''
+$ ./deployCDN [-p port] [-o origin] [-n name] [-u username] [-i keyfile]
+
+EXAMPLE: `./deployCDN -p 20380 -o cs5700cdnorigin.ccs.neu.edu -n cdn-dns.khoury.northeastern.edu -u quach.l -i keys/ssh-ed25519-quach.l.priv`
+
+port, origin, and name are the same as above. username is the account name you
+use for logging in and keyfile is the path to the private key you use for
+logging into nodes. Your scripts should use the last two arguments as follows: 
+
+$ ssh -i keyfile username@<some cloud server> ...
+'''
+
+# domain name & IP address of HTTP cache servers
+REPLICA_SERVERS = {
+    'cdn-http3.khoury.northeastern.edu': '45.33.55.171',
+    'cdn-http4.khoury.northeastern.edu': '170.187.142.220', 
+    'cdn-http7.khoury.northeastern.edu': '213.168.249.157', 
+    'cdn-http11.khoury.northeastern.edu': '139.162.82.207', 
+    'cdn-http14.khoury.northeastern.edu': '45.79.124.209', 
+    'cdn-http15.khoury.northeastern.edu': '192.53.123.145', 
+    'cdn-http16.khoury.northeastern.edu': '192.46.221.203',
+}
+
+DNS_SERVER = 'cs5700cdnproject.ccs.neu.edu'
+
+def parse_args():
+    '''
+    Parses command line arguments.
+    '''
+    parser = argparse.ArgumentParser(description='Deploy CDN')
+    parser.add_argument('-p', '--port', required=True, type=int, help='Port number to bind HTTP server to')
+    parser.add_argument('-o', '--origin', required=True, type=str, help='Origin server to fetch content from')
+    parser.add_argument('-n', '--name', required=True, type=str, help='CDN-specific domain name to translate')
+    parser.add_argument('-u', '--username', required=True, type=str, help='Username for logging into cloud servers')
+    parser.add_argument('-i', '--keyfile', required=True, type=str, help='Path to private key for logging into cloud servers')
+    return parser.parse_args()
+
+def deploy_http_server(port, origin, http_server, username, keyfile):
+    '''
+    Deploys HTTP cache servers.
+    '''
+    # example: scp -i keys/ssh-ed25519-quach.l.priv httpserver quach.l@cdn-http3.khoury.northeastern.edu:~/ 
+
+    scp_command = [
+        'scp', 
+        '-i', keyfile,
+        'httpserver',
+        f"{username}@{http_server}:~/"
+    ]
+    print(f" ** deploying HTTP server to {http_server} ** ")
+    subprocess.run(scp_command)
+
+
+def deploy_dns_server(port, origin, server_name, username, keyfile):
+    '''
+    Deploys DNS server.
+    '''
+    # example: scp -i keys/ssh-ed25519-quach.l.priv dnsserver quach.l@cdn-dns.khoury.northeastern.edu:~/`
+    scp_command = [
+        'scp', 
+        '-i', keyfile,
+        'dnsserver',
+        f"{username}@{server_name}:~/"
+    ]
+    print(f" ** deploying DNS server to {server_name} ** ")
+    subprocess.run(scp_command)
+
+def main():
+    args = parse_args()
+    print(args)
+
+    for server in REPLICA_SERVERS:
+        deploy_http_server(args.port, args.origin, REPLICA_SERVERS[server], args.username, args.keyfile)
+
+    deploy_dns_server(args.port, args.origin, args.name, args.username, args.keyfile)
+
+if __name__ == '__main__':
+    main()
