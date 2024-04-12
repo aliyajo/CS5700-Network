@@ -1,23 +1,3 @@
-## Sources ##
-- https://humanwhocodes.com/blog/2011/11/29/how-content-delivery-networks-cdns-work/ 
-- https://pypi.org/project/haversine/ 
-- https://pub.towardsai.net/top-10-python-libraries-for-geocoding-in-2022-7202001575de 
-- https://docs.python.org/3/library/http.server.html 
-- https://scoutapm.com/blog/understanding-load-averages
-- https://stackoverflow.com/questions/28385922/why-does-subprocess-not-return-anything-when-pinging-a-server-on-python 
-
-
-
-
-
-- https://pythonbasics.org/webserver/
-- https://pypi.org/project/dnslib/
-- https://github.com/paulc/dnslib
-- https://www.geeksforgeeks.org/designing-content-delivery-network-cdn-system-design/#
-- https://pypi.org/project/psutil/
-
-
-
 # Project 6; Content  Delivery Network
 
 ## Authors:
@@ -26,18 +6,20 @@
 
 
 ## Description:
-- 
+- This project entails creating our own basic CDN implementation. This involves creating a DNS server that is able to map the clients requesting content to what we categorize as "good" replica servers. These replica servers, which are HTTP based, are then able to retrieve the content the client is requesting. This basic implementation involves strategic planning on how the CDN is able to redirect, and utilize the HTTP server to have fast performance.
+
 
 
 ## How to install & run:
-- `pip install dnslib`
-- `pip install psutil`
-- 
-- 
+- `pip install dnslib`  <a href="https://pypi.org/project/dnslib/">Documentation</a>
+- `pip install psutil`  <a href="https://pypi.org/project/psutil/">Documentation</a>
+- `pip install haversine` <a href="https://pypi.org/project/haversine/">Documentation</a>
+- `pip install geoip2` <a href="https://pypi.org/project/geoip2/">Documentation</a>
 - 
 - 
 
 ## Design & Implementation:
+> First Step
 - Before starting the project, we needed to review CDN's and what the goals of
   the project were. Initially we were a bit confused at what parts of the CDN
   we needed to build and which parts were already provided to us. 
@@ -55,20 +37,51 @@
   
   - At this point, we had a very basic DNS & HTTP servers to continue to build upon.
 
+> Next Step
+- After implementing these foundational aspects of the servers, decided to add onto
+  each.
+
+- For the DNS server, in order to ensure it was proficient in its mapping configuration,
+  decided to implement a dynamic active and passive measurement determining which
+  replica server to send to.
+    - For passive measurement, implemented directing based on geographical location.
+      When the client si requesting content, the DNS server will determine which replica
+      is closest by picking the one with the closest distance. This point of the server
+      involves using <a href="https://pypi.org/project/geoip2/0.1.0/">GeoIp2</a>
+      These replica servers closest to the client are then put in an ordered list.
+    - For active measurement, this then looked at this ordered list, and determined if
+      the first in the list--which is the closest server-- is overloaded or not.
+      If it is overloaded, will move on in the list, and vice versa.
+      This then returns the best server
+        - Overloading was determined by sending a GET request to the replica server we are
+          asking information from. On the HTTP server side, it determines its load average
+          and CPU percent, and sends this back as a JSON object to the DNS server.
+        - These metrics are then gauged based on the following scale:
+            - Syntax for Load Average: [#, #, #]
+              
+                If any of these numbers are above, or equal to 1, will be determined as overloaded
+          
+            - Syntax for CPU Percent: #
+          
+                If this number is above a 90, will then be be determined as overloaded.
+    - This DNS server also implements its own version of a cache. If the client has been
+      redirected before, will redirect it to the recent server previously determined. This
+      cache has a time component to maintain proficiency.
+
+- For the HTTP server,
 
 ## Challenges:
-- At the start of imlementing the project, we needed to review our basic
-  understanding of CDN's and the big picture of what the project wanted us to
-  accomplish. On top of that, we were given ssh private & public keys
-  the professor provided in an email, which I had no clue what to do with them,
-  initially. After some help, I was able to ssh into the DNS server to start.
+- At the start of implementing the project, we needed to review our basic understanding
+  of what CDN's and the big picture. In addition, the corresponding ssh keys were needed
+  to access the different servers provided for this project. After some help, we were able
+  to determine how to accurately SSH into the DNS and HTTP servers to start. 
 
-- There was a lot of confusing on my part about how to deploy my code on my
-  local machine to the DNS server. I was able to figure out the scp command to
-  copy my files over. I also had issues figuring out the syntax for the 'dig'
-  and 'wget' commands to test the DNS and HTTP servers.
-
--
+- Once we were able to SSH into these different servers, being able to actually deploy our code
+  became our next issue. This was resolved with using the scp command to ensure our local
+  files were copied over to these servers for deployment. In addition, to test these files,
+  we were able to determine the correct syntax for the commands 'dig' and 'wget'.
+  
+- Implenting how we wanted to map the redirection on the DNS side was challenging strategically wise. There are ways of determining how to redirect, which was resolved through communication and viewing how real-world CDN's work. This led to using both active and passive measurement.
 
 ## Testing:
 - Testing the DNS server consisted of print statements & utilizing the 'dig'
@@ -79,4 +92,11 @@
   to see if the cache server was able to fetch content from the origin server
   and send it to the client.
 
--
+## Sources Used:
+- <a href='https://humanwhocodes.com/blog/2011/11/29/how-content-delivery-networks-cdns-work/'>How Content Delivery Networks Work</a> 
+- <a href='https://scoutapm.com/blog/understanding-load-averages'>Understanding Load Averages</a>
+- https://pythonbasics.org/webserver/
+- https://pypi.org/project/dnslib/
+- https://github.com/paulc/dnslib
+- <a href='https://www.geeksforgeeks.org/designing-content-delivery-network-cdn-system-design/#'>Designing CDN System Design</a>
+- https://pypi.org/project/psutil/
