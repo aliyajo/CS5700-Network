@@ -93,10 +93,13 @@ def deploy_libraries(keyfile, username, server_name, library_name):
         'ssh',
         '-i', keyfile,
         f"{username}@{server_name}",
-        f"pip install {library_name}"
+        f"python3 -m pip install {library_name}"
     ]
     print(f" ** deploying {library_name} to {server_name} ** ")
-    subprocess.run(ssh_command)
+    try:
+        subprocess.run(ssh_command)
+    except Exception as e:
+        print(f"Error deploying {library_name} to {server_name}: {e}")
 
 
 def main():

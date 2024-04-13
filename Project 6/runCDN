@@ -16,7 +16,9 @@ REPLICA_SERVERS = {
     'cdn-http11.khoury.northeastern.edu': '139.162.82.207', 
     'cdn-http14.khoury.northeastern.edu': '45.79.124.209', 
     'cdn-http15.khoury.northeastern.edu': '192.53.123.145', 
+    'cdn-http16.khoury.northeastern.edu': '192.46.221.203',
 }
+
 # ssh -i ssh-ed25519-jordan.aliy.priv jordan.aliy@cdn-dns.khoury.northeastern.edu
 DNS_SERVER = 'cdn-dns.khoury.northeastern.edu'
 

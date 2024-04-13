@@ -136,6 +136,7 @@ class DNSServer:
         '''
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.bind(('', self.port))
+        print(f' ** dns server running on port {self.port} ** ')
         
         try:
             while True:
@@ -176,6 +177,8 @@ class DNSServer:
                             rdata=dnslib.A(best_addr)))
                     # Send the response
                     s.sendto(response.pack(), addr)
+                    print(f' ** sent response to CLIENT ADDRESS: {addr}, & RESPONSE: {response} ** ')
+                    print(f' \n =============================== \n ')
                     # Update the cache
                     self.cache[local_addr] = {'ip': best_addr, 'time': time.time()}
         except Exception as e:
