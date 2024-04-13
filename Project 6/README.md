@@ -68,7 +68,26 @@
       redirected before, will redirect it to the recent server previously determined. This
       cache has a time component to maintain proficiency.
 
-- For the HTTP server,
+- For the HTTP server, to speed up the process of fetching content from the
+  origin server, we implemented a cache for content. This cache is able to store content
+  that has been requested before to send to the client, instead of having to
+  fetch from the origin server again. 
+    - This cache is implemented in an ordered dictionary, where the key is the
+      URL and the value is the content. By using an ordered dictionary, we are
+      able to maintain a Least Recently Used (LRU) cache. By having this
+      ordering, the most popular content will be readily available. And this also means that if
+      the cache is full, the least recently used content will be removed to make
+      room for new content.
+    - The reason the cache has a max size is to ensure that the cache does not
+      grow too large and take up too much memory.
+    - When the HTTP server sends content, it will also check if the client
+      request accepts gzip encoding. If it does, the content will be compressed
+      before being sent to the client to save bandwidth.
+    - Another note, the HTTP server will cache URL paths that return a 404
+      error. According to the professor, pages that return this error will
+      always return this error, so there is no need to attempt to fetch the
+      content from the origin server again.
+
 
 ## Challenges:
 - At the start of implementing the project, we needed to review our basic understanding
