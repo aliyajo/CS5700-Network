@@ -26,9 +26,7 @@ REPLICA_SERVERS = {
     'cdn-http16.khoury.northeastern.edu': '192.46.221.203',
 }
 
-DNS_SERVER = 'cs5700cdnproject.ccs.neu.edu'
-
-PROCESS_NAMES = ['httpserver', 'dnsserver']
+DNS_SERVER = 'cdn-dns.khoury.northeastern.edu'
 
 
 def parse_args():
@@ -43,33 +41,52 @@ def parse_args():
     parser.add_argument('-i', '--keyfile', required=True, type=str, help='Path to private key for logging into cloud servers')
     return parser.parse_args()
 
-def stop_servers(args, servers, process_names):
+def stop_http_servers(args, REPLICA_SERVERS):
     '''
-    Stops all HTTP cache servers and DNS server.
+    Stops all HTTP cache servers.
     '''
-    for server in servers:
-        for process in process_names:
-            print(f' ** stopping {process} on {server} ** ')
-            ssh_command =  [
-                'ssh',
-                '-i', args.keyfile,
-                f'{args.username}@{server}',
-                # kills either httpserver or dnsserver process
-                f"'pkill -f {process}'"
-            ]
-            try:
-                subprocess.run(ssh_command, check=True)
-            except subprocess.CalledProcessError as e:
-                print(f'Error stopping {process} on {server}: {e}')
+    for server in REPLICA_SERVERS:
+        # example: ssh -i ssh-ed25519-quach.l.priv quach.l@cdn-http3.khoury.northeastern.edu
+        ssh_command =  [
+            'ssh',
+            '-i', args.keyfile,
+            f'{args.username}@{server}',
+            # kills either httpserver or dnsserver process
+            f'pkill -f httpserver'
+        ]
+        try:
+            subprocess.run(ssh_command, check=True)
+            print(f' ** stopping {server} ** ')
+        except subprocess.CalledProcessError as e:
+            print(f'Error stopping {server}: {e}')
+
+
+def stop_dns_server(args):
+    '''
+    Stops DNS server.
+    '''
+    print(f' ** stopping {args.name} ** ')
+    # example: ssh -i ssh-ed25519-quach.l.priv quach.l@cdn-dns.khoury.northeastern.edu
+    ssh_command =  [
+        'ssh',
+        '-i', args.keyfile,
+        f'{args.username}@{args.name}',
+        # kills either httpserver or dnsserver process
+        f'pkill -f dnsserver'
+    ]
+    try:
+        subprocess.run(ssh_command, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f'Error stopping {args.name}: {e}')
             
 def main():
     args = parse_args()
     
-    # combine replica servers & DNS server to stop eveerything
-    servers = list(REPLICA_SERVERS.keys())
-    servers.append(DNS_SERVER)
+    # stop all HTTP cache servers
+    stop_http_servers(args, REPLICA_SERVERS.keys())
 
-    stop_servers(args, servers, PROCESS_NAMES)
+    # stop DNS server
+    stop_dns_server(args)
 
 if __name__ == '__main__':
     main()
