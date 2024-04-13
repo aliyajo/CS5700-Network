@@ -84,6 +84,21 @@ def deploy_geoip_db(keyfile, username, server_name):
     print(f" ** deploying GeoIP database to {server_name} ** ")
     subprocess.run(scp_command)
 
+def deploy_libraries(keyfile, username, server_name, library_name):
+    '''
+    Deploys libraries.
+    '''
+    # example: pip install psutil
+    ssh_command = [
+        'ssh',
+        '-i', keyfile,
+        f"{username}@{server_name}",
+        f"pip install {library_name}"
+    ]
+    print(f" ** deploying {library_name} to {server_name} ** ")
+    subprocess.run(ssh_command)
+
+
 def main():
     args = parse_args()
     print(args)
@@ -91,10 +106,17 @@ def main():
     # deploy http servers
     for server in REPLICA_SERVERS:
         deploy_http_server(args.port, args.origin, REPLICA_SERVERS[server], args.username, args.keyfile)
+    
     # deploy dns server
     deploy_dns_server(args.port, args.origin, args.name, args.username, args.keyfile)
+    
     # deploy GeoIP database
     deploy_geoip_db(args.keyfile, args.username, args.name)
+    
+    # deploy libraries
+    for server in REPLICA_SERVERS:
+        # psutil
+        deploy_libraries(args.keyfile, args.username, REPLICA_SERVERS[server], 'psutil')
 
 if __name__ == '__main__':
     main()
