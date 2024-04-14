@@ -28,84 +28,76 @@ REPLICA_SERVERS = {
 
 DNS_SERVER = 'cdn-dns.khoury.northeastern.edu'
 
-def parse_args():
-    '''
-    Parses command line arguments.
-    '''
-    parser = argparse.ArgumentParser(description='Deploy CDN')
-    parser.add_argument('-p', '--port', required=True, type=int, help='Port number to bind HTTP server to')
-    parser.add_argument('-o', '--origin', required=True, type=str, help='Origin server to fetch content from')
-    parser.add_argument('-n', '--name', required=True, type=str, help='CDN-specific domain name to translate')
-    parser.add_argument('-u', '--username', required=True, type=str, help='Username for logging into cloud servers')
-    parser.add_argument('-i', '--keyfile', required=True, type=str, help='Path to private key for logging into cloud servers')
-    return parser.parse_args()
-
 def deploy_http_server(port, origin, http_server, username, keyfile):
     '''
     Deploys HTTP cache servers.
     '''
-    # example: scp -i keys/ssh-ed25519-quach.l.priv httpserver quach.l@cdn-http3.khoury.northeastern.edu:~/ 
-
+    # Draft the command to deploy the HTTP server
     scp_command = [
         'scp', 
         '-i', keyfile,
         'httpserver',
         f"{username}@{http_server}:~/"
     ]
-    print(f" ** deploying HTTP server to {http_server} ** ")
+    print(f" ** Deploying HTTP server to {http_server} ** ")
+    # Run the command
     subprocess.run(scp_command)
-
 
 def deploy_dns_server(keyfile, username, server_name):
     '''
     Deploys DNS server.
     '''
-    # example: scp -i keys/ssh-ed25519-quach.l.priv dnsserver quach.l@cdn-dns.khoury.northeastern.edu:~/`
+    # Draft the command to deploy the DNS server
     scp_command = [
         'scp', 
         '-i', keyfile,
         'dnsserver',
         f"{username}@{server_name}:~/"
     ]
-    print(f" ** deploying DNS server to {server_name} ** ")
+    print(f" ** Deploying DNS server to {server_name} ** ")
+    # Run the command
     subprocess.run(scp_command)
 
 def deploy_geoip_db(keyfile, username, server_name):
     '''
     Deploys GeoIP database.
     '''
-    # example: scp -i keys/ssh-ed25519-quach.l.priv GeoIp2/GeoLite2-City.mmdb quach.l@cdn-dns.khoury.northeastern.edu:~/
+    # Draft the command to deploy the GeoIP database
     scp_command = [
         'scp', 
         '-i', keyfile,
         'GeoIp2/GeoLite2-City.mmdb',
         f"{username}@{server_name}:~/"
     ]
-    print(f" ** deploying GeoIP database to {server_name} ** ")
+    print(f" ** Deploying GeoIP database to {server_name} ** ")
+    # Run the command
     subprocess.run(scp_command)
 
 def deploy_libraries(keyfile, username, server_name, library_name):
     '''
     Deploys libraries.
     '''
-    # example: pip install psutil
+    # Draft the command to deploy the library
     ssh_command = [
         'ssh',
         '-i', keyfile,
         f"{username}@{server_name}",
         f"python3 -m pip install {library_name}"
     ]
-    print(f" ** deploying {library_name} to {server_name} ** ")
+    print(f" ** Deploying {library_name} to {server_name} ** ")
     try:
+        # Run the command
         subprocess.run(ssh_command)
     except Exception as e:
         print(f"Error deploying {library_name} to {server_name}: {e}")
 
 
-def main():
-    args = parse_args()
-    print(args)
-
+def main(args):
+    '''
+    This function deploys the CDN.
+    Ensures all the files are deployed to the correct servers.
+    Ensures libraries are installed on the correct servers.
+    '''
     # deploy http servers
     for server in REPLICA_SERVERS:
         deploy_http_server(args.port, args.origin, REPLICA_SERVERS[server], args.username, args.keyfile)
@@ -128,5 +120,15 @@ def main():
     deploy_libraries(args.keyfile, args.username, DNS_SERVER, 'requests')
     # dnslib
     deploy_libraries(args.keyfile, args.username, DNS_SERVER, 'dnslib')
+
 if __name__ == '__main__':
-    main()
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Deploy CDN')
+    parser.add_argument('-p', '--port', required=True, type=int, help='Port number to bind HTTP server to')
+    parser.add_argument('-o', '--origin', required=True, type=str, help='Origin server to fetch content from')
+    parser.add_argument('-n', '--name', required=True, type=str, help='CDN-specific domain name to translate')
+    parser.add_argument('-u', '--username', required=True, type=str, help='Username for logging into cloud servers')
+    parser.add_argument('-i', '--keyfile', required=True, type=str, help='Path to private key for logging into cloud servers')
+    args = parser.parse_args()
+    # Call main function
+    main(args)
