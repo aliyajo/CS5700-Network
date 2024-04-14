@@ -45,6 +45,7 @@ REPLICA_SERVERS_INFO = {
     'long': 151.2006, 
     'country': 'AU'}
  }
+
 class DNSServer:
     '''
     This class represents the DNS server.
@@ -149,7 +150,7 @@ class DNSServer:
                 if request.q.qname == self.name and request.q.qtype == dnslib.QTYPE.A:
                     # Check if in DNS cache
                     if local_addr in self.cache:
-                        # Check if the cache is still valid
+                        # Check if the cache is still valid, using timing component
                         if time.time() - self.cache[local_addr]['time'] < 300:
                             # Draft the response
                             response = request.reply()
@@ -164,7 +165,6 @@ class DNSServer:
                         # If the cache is invalid, remove it
                         else:
                             del self.cache[local_addr]
-                            
                     # Determine the best server, geographically based
                     best_addr = self.best_server(local_addr)
                     # Draft the response
@@ -177,8 +177,7 @@ class DNSServer:
                             rdata=dnslib.A(best_addr)))
                     # Send the response
                     s.sendto(response.pack(), addr)
-                    print(f' ** sent response to CLIENT ADDRESS: {addr}, & RESPONSE: {response} ** ')
-                    print(f' \n =============================== \n ')
+                    print(f' ** Sent response to CLIENT ADDRESS: {addr}, & RESPONSE: {response} ** ')
                     # Update the cache
                     self.cache[local_addr] = {'ip': best_addr, 'time': time.time()}
         except Exception as e:
