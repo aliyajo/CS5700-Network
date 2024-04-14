@@ -1,14 +1,7 @@
+#! /usr/bin/env python3
 import argparse
 import subprocess
-import threading
 
-#! /usr/bin/env python
-
-'''
-$ ./deployCDN [-p port] [-o origin] [-n name] [-u username] [-i keyfile]
-
-'''
-# domain name & IP address of HTTP cache servers
 REPLICA_SERVERS = {
     'cdn-http3.khoury.northeastern.edu': '45.33.55.171',
     'cdn-http4.khoury.northeastern.edu': '170.187.142.220', 
@@ -19,51 +12,30 @@ REPLICA_SERVERS = {
     'cdn-http16.khoury.northeastern.edu': '192.46.221.203',
 }
 
-# ssh -i ssh-ed25519-jordan.aliy.priv jordan.aliy@cdn-dns.khoury.northeastern.edu
 DNS_SERVER = 'cdn-dns.khoury.northeastern.edu'
 
-def run_http_server(port, origin, name, username, keyfile, server, ip, lock):
-    try:
-        # Now we are in the server, so will run the following commands
-        command = [
-            'python3',
-            'httpserver',
-            '-p', str(port),
-        ]
-        print(f"** Running HTTP Server: {server} **")
-        threading.Thread(target=subprocess.run, args=(command,)).start()
-        
-        # Acquire the lock to ensure sequential execution
-        lock.acquire()
-        
-        ssh_command = [
-            'ssh',
-            '-i', keyfile,
-            f"{username}@{server}",
-            '>/dev/null',  # Redirecting stdout to /dev/null
-            '2>&1', 
-        ]
-        print(f"** Logging into HTTP Server: {server} **")
-        subprocess.run(ssh_command)  # Wait for the SSH command to finish
-        
-        # Release the lock after executing the SSH command
-        lock.release()
-    except OSError as e:
-        print(f"** CAN'T RUN/LOG INTO HTTP SERVER: {server} **")
-
 def main(args):
-    lock = threading.Lock()  # Create a lock object
-    
+    '''
+    This is the main function that runs the CDN. It starts the HTTP servers on each replica server and the DNS server.
+    '''
+    print("** RUNNING CDN **")
+    # SSH and run the HTTP server on each replica server
     for server in REPLICA_SERVERS:
-        run_http_server(args.port, args.origin, args.name, args.username, args.keyfile, server, REPLICA_SERVERS[server], lock)
+        print(f"** Starting HTTP server on {server} ** ")
+        subprocess.Popen(f'ssh -i {args.keyfile} {args.username}@{REPLICA_SERVERS[server]} "python3 httpserver -p {args.port} -o {args.origin}"', shell=True)
+    # SSH and run the DNS server
+    print(f"Starting DNS server on {DNS_SERVER}")
+    subprocess.Popen(f'ssh -i {args.keyfile} {args.username}@{DNS_SERVER} "./dnsserver -p {args.port} -n {args.name}"', shell=True)
 
+    print("** DONE! :) **")
 
 if __name__ == '__main__':
+    # Parse the arguments
     parser = argparse.ArgumentParser(description='Run CDN')
-    parser.add_argument('-p', '--port', help='Port number', type=int)
-    parser.add_argument('-o', '--origin', help='Origin server')
-    parser.add_argument('-n', '--name', help='Name of the server')
-    parser.add_argument('-u', '--username', help='Username')
-    parser.add_argument('-i', '--keyfile', help='Keyfile')
+    parser.add_argument('-p', '--port', type=int, required=True, help='Port number')
+    parser.add_argument('-o', '--origin', required=True, help='Origin server')
+    parser.add_argument('-n', '--name', required=True, help='Name of the server')
+    parser.add_argument('-u', '--username', required=True, help='Username')
+    parser.add_argument('-i', '--keyfile', required=True, help='Keyfile')
     args = parser.parse_args()
     main(args)
