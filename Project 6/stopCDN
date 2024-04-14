@@ -28,25 +28,12 @@ REPLICA_SERVERS = {
 
 DNS_SERVER = 'cdn-dns.khoury.northeastern.edu'
 
-
-def parse_args():
-    '''
-    Parses command line arguments.
-    '''
-    parser = argparse.ArgumentParser(description='Deploy CDN')
-    parser.add_argument('-p', '--port', required=True, type=int, help='Port number to bind HTTP server to')
-    parser.add_argument('-o', '--origin', required=True, type=str, help='Origin server to fetch content from')
-    parser.add_argument('-n', '--name', required=True, type=str, help='CDN-specific domain name to translate')
-    parser.add_argument('-u', '--username', required=True, type=str, help='Username for logging into cloud servers')
-    parser.add_argument('-i', '--keyfile', required=True, type=str, help='Path to private key for logging into cloud servers')
-    return parser.parse_args()
-
 def stop_http_servers(args, REPLICA_SERVERS):
     '''
     Stops all HTTP cache servers.
     '''
     for server in REPLICA_SERVERS:
-        # example: ssh -i ssh-ed25519-quach.l.priv quach.l@cdn-http3.khoury.northeastern.edu
+        # Draft ssh command to find and kill process
         ssh_command =  [
             'ssh',
             '-i', args.keyfile,
@@ -85,7 +72,7 @@ def stop_dns_server(args):
     '''
     Stops DNS server.
     '''
-    # example: ssh -i ssh-ed25519-quach.l.priv quach.l@cdn-dns.khoury.northeastern.edu
+    # Draft ssh command to find and kill process
     ssh_command =  [
         'ssh',
         '-i', args.keyfile,
@@ -118,9 +105,8 @@ def stop_dns_server(args):
         else:
             print(f'Error stopping {DNS_SERVER}: {e}')
             
-def main():
-    args = parse_args()
-    
+def main(args):    
+
     # stop all HTTP cache servers
     stop_http_servers(args, REPLICA_SERVERS.keys())
 
@@ -128,4 +114,13 @@ def main():
     stop_dns_server(args)
 
 if __name__ == '__main__':
-    main()
+    # parse arguments
+    parser = argparse.ArgumentParser(description='Deploy CDN')
+    parser.add_argument('-p', '--port', required=True, type=int, help='Port number to bind HTTP server to')
+    parser.add_argument('-o', '--origin', required=True, type=str, help='Origin server to fetch content from')
+    parser.add_argument('-n', '--name', required=True, type=str, help='CDN-specific domain name to translate')
+    parser.add_argument('-u', '--username', required=True, type=str, help='Username for logging into cloud servers')
+    parser.add_argument('-i', '--keyfile', required=True, type=str, help='Path to private key for logging into cloud servers')
+    args = parser.parse_args()
+    # run main function
+    main(args)
