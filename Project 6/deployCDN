@@ -120,6 +120,13 @@ def main():
     for server in REPLICA_SERVERS:
         # psutil
         deploy_libraries(args.keyfile, args.username, REPLICA_SERVERS[server], 'psutil')
-
+    # haversine
+    deploy_libraries(args.keyfile, args.username, DNS_SERVER, 'haversine')
+    # geoip2
+    deploy_libraries(args.keyfile, args.username, DNS_SERVER, 'geoip2')
+    # requests
+    deploy_libraries(args.keyfile, args.username, DNS_SERVER, 'requests')
+    # dnslib
+    deploy_libraries(args.keyfile, args.username, DNS_SERVER, 'dnslib')
 if __name__ == '__main__':
     main()
