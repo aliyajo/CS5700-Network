@@ -32,11 +32,11 @@ def main(args):
 
 if __name__ == '__main__':
     # Parse the arguments
-    parser = argparse.ArgumentParser(description='Run CDN')
-    parser.add_argument('-p', '--port', type=int, required=True, help='Port number')
-    parser.add_argument('-o', '--origin', required=True, help='Origin server')
-    parser.add_argument('-n', '--name', required=True, help='Name of the server')
-    parser.add_argument('-u', '--username', required=True, help='Username')
-    parser.add_argument('-i', '--keyfile', required=True, help='Keyfile')
+    parser = argparse.ArgumentParser(description='Deploy CDN')
+    parser.add_argument('-p', '--port', required=True, type=int, help='Port number to bind HTTP server to')
+    parser.add_argument('-o', '--origin', required=True, type=str, help='Origin server to fetch content from')
+    parser.add_argument('-n', '--name', required=True, type=str, help='CDN-specific domain name to translate')
+    parser.add_argument('-u', '--username', required=True, type=str, help='Username for logging into cloud servers')
+    parser.add_argument('-i', '--keyfile', required=True, type=str, help='Path to private key for logging into cloud servers')
     args = parser.parse_args()
     main(args)
