@@ -51,33 +51,72 @@ def stop_http_servers(args, REPLICA_SERVERS):
             'ssh',
             '-i', args.keyfile,
             f'{args.username}@{server}',
-            # kills either httpserver or dnsserver process
-            f'pkill -f httpserver'
+            # find specific process and kill it
+            f'lsof -ti:{args.port}' 
         ]
         try:
-            subprocess.run(ssh_command, check=True)
-            print(f' ** stopping {server} ** ')
+            # get process id
+            process = subprocess.run(ssh_command, check=True, capture_output=True, text=True)
+            pid = process.stdout.strip()
+            
+            # if pid found, kill it
+            if pid:
+                kill_command =  [
+                    'ssh',
+                    '-i', args.keyfile,
+                    f'{args.username}@{server}',
+                    f'kill {pid}'
+                ]
+                subprocess.run(kill_command, check=True)
+                print(f' ** stopping {server} with PID {pid} ** ')
+            else:
+                print(f' ** {server} process not found ** ')
+
         except subprocess.CalledProcessError as e:
-            print(f'Error stopping {server}: {e}')
+            # if process not found, returncode is 1
+            if e.returncode == 1:
+                print(f' ** {server} process not found ** ')
+            else:
+                print(f'Error stopping {server}: {e}')
+        
 
 
 def stop_dns_server(args):
     '''
     Stops DNS server.
     '''
-    print(f' ** stopping {args.name} ** ')
     # example: ssh -i ssh-ed25519-quach.l.priv quach.l@cdn-dns.khoury.northeastern.edu
     ssh_command =  [
         'ssh',
         '-i', args.keyfile,
-        f'{args.username}@{args.name}',
-        # kills either httpserver or dnsserver process
-        f'pkill -f dnsserver'
+        f'{args.username}@{DNS_SERVER}',
+        # find specific process and kill it
+        f'lsof -ti:{args.port}' 
     ]
     try:
-        subprocess.run(ssh_command, check=True)
+        # get process id
+        process = subprocess.run(ssh_command, check=True, capture_output=True, text=True)
+        pid = process.stdout.strip()
+        
+        # if pid found, kill it
+        if pid:
+            kill_command =  [
+                'ssh',
+                '-i', args.keyfile,
+                f'{args.username}@{DNS_SERVER}',
+                f'kill {pid}'
+            ]
+            subprocess.run(kill_command, check=True)
+            print(f' ** stopping {DNS_SERVER} with PID {pid} ** ')
+        else:
+            print(f' ** {DNS_SERVER} process not found ** ')
+
     except subprocess.CalledProcessError as e:
-        print(f'Error stopping {args.name}: {e}')
+        # if process not found, returncode is 1
+        if e.returncode == 1:
+            print(f' ** {DNS_SERVER} process not found ** ')
+        else:
+            print(f'Error stopping {DNS_SERVER}: {e}')
             
 def main():
     args = parse_args()
