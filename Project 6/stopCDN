@@ -3,18 +3,6 @@
 import argparse
 import subprocess
 
-'''
-$ ./stopCDN [-p port] [-o origin] [-n name] [-u username] [-i keyfile]
-
-EXAMPLE: `python3 ./stopCDN -p 20380 -o cs5700cdnorigin.ccs.neu.edu -n cdn-dns.khoury.northeastern.edu -u quach.l -i keys/ssh-ed25519-quach.l.priv`
-
-port, origin, and name are the same as above. username is the account name you
-use for logging in and keyfile is the path to the private key you use for
-logging into nodes. Your scripts should use the last two arguments as follows: 
-
-$ ssh -i keyfile username@<some cloud server> ...
-'''
-
 # domain name & IP address of HTTP cache servers
 REPLICA_SERVERS = {
     'cdn-http3.khoury.northeastern.edu': '45.33.55.171',
