@@ -26,7 +26,7 @@ REPLICA_SERVERS = {
     'cdn-http16.khoury.northeastern.edu': '192.46.221.203',
 }
 
-DNS_SERVER = 'cs5700cdnproject.ccs.neu.edu'
+DNS_SERVER = 'cdn-dns.khoury.northeastern.edu'
 
 def parse_args():
     '''
@@ -56,7 +56,7 @@ def deploy_http_server(port, origin, http_server, username, keyfile):
     subprocess.run(scp_command)
 
 
-def deploy_dns_server(port, origin, server_name, username, keyfile):
+def deploy_dns_server(keyfile, username, server_name):
     '''
     Deploys DNS server.
     '''
@@ -111,10 +111,10 @@ def main():
         deploy_http_server(args.port, args.origin, REPLICA_SERVERS[server], args.username, args.keyfile)
     
     # deploy dns server
-    deploy_dns_server(args.port, args.origin, args.name, args.username, args.keyfile)
+    deploy_dns_server(args.keyfile, args.username, DNS_SERVER)
     
     # deploy GeoIP database
-    deploy_geoip_db(args.keyfile, args.username, args.name)
+    deploy_geoip_db(args.keyfile, args.username, DNS_SERVER)
     
     # deploy libraries
     for server in REPLICA_SERVERS:
