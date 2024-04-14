@@ -16,7 +16,33 @@
 - `pip install haversine` <a href="https://pypi.org/project/haversine/">Documentation</a>
 - `pip install geoip2` <a href="https://pypi.org/project/geoip2/">Documentation</a>
 - `pip install requests` <a href="https://pypi.org/project/requests/">Documentation</a>
-- 
+
+> Running
+- Run the Deploy Script first, here is the syntax:
+
+      python3 ./deployCDN -p port -o origin -n name -u username -i keyfile
+  - port: port number DNS server will bind to
+  - origin: name of the origin server for the CDN
+  - name: CDN-specific name that dns server will redirect
+  - username: account name for logging in
+  - keyfile: path to the private key for logging into nodes
+- Run the Run Script to then run the servers, here is the syntax:
+  
+      python3 ./runCDN -p port -o origin -n name -u username -i keyfile
+  - port: port number DNS server will bind to
+  - origin: name of the origin server for the CDN
+  - name: CDN-specific name that dns server will redirect
+  - username: account name for logging in
+  - keyfile: path to the private key for logging into nodes
+
+- Run the Stop Script when done with program, here is the syntax:
+
+      python3 ./deployCDN -p port -o origin -n name -u username -i keyfile
+  - port: port number DNS server will bind to
+  - origin: name of the origin server for the CDN
+  - name: CDN-specific name that dns server will redirect
+  - username: account name for logging in
+  - keyfile: path to the private key for logging into nodes
 
 ## Design & Implementation:
 > First Step
