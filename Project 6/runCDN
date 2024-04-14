@@ -19,13 +19,14 @@ def main(args):
     This is the main function that runs the CDN. It starts the HTTP servers on each replica server and the DNS server.
     '''
     print("** RUNNING CDN **")
+     # SSH and run the DNS server
+    print(f"** Starting DNS server on {DNS_SERVER} ** ")
+    subprocess.Popen(f'ssh -i {args.keyfile} {args.username}@{DNS_SERVER} "python3 dnsserver -p {args.port} -n {args.name}"', shell=True)
+
     # SSH and run the HTTP server on each replica server
     for server in REPLICA_SERVERS:
         print(f"** Starting HTTP server on {server} ** ")
         subprocess.Popen(f'ssh -i {args.keyfile} {args.username}@{REPLICA_SERVERS[server]} "python3 httpserver -p {args.port} -o {args.origin}"', shell=True)
-    # SSH and run the DNS server
-    print(f"Starting DNS server on {DNS_SERVER}")
-    subprocess.Popen(f'ssh -i {args.keyfile} {args.username}@{DNS_SERVER} "./dnsserver -p {args.port} -n {args.name}"', shell=True)
 
     print("** DONE! :) **")
 
