@@ -78,14 +78,20 @@ class DNSServer:
         Returns:
             The closest server
         '''
-        # Determine the coordinates
-        coordinates = self.determining_distances(addr)
+        # Determine the distances
+        distances = self.determining_distances(addr)
         # Check if first element is overloaded
-        for ip, distance in coordinates:
+        for ip, distance in distances:
+            print(f"* Checking server {ip} *\n")
             if self.check_overloaded(ip):
+                print(f"* Server {ip} is overloaded *\n")
                 continue
             else:
+                print(f"* Server {ip} is not overloaded *\n")
                 return ip
+        # If all servers are overloaded, return the closest server
+        print(f"* All servers are overloaded, returning to closest server {distances[0][0]}* \n")
+        return distances[0][0]
             
     def determining_distances(self, addr):
         '''
@@ -99,7 +105,6 @@ class DNSServer:
         # Using the geoip2 library to determine the coordinates of the address
         with geoip2.database.Reader("GeoLite2-City.mmdb") as reader:
             addr_coord = reader.city(addr)
-
         # Calculate the distance between the current address and the replica servers
         distances = []
         distances = [(ip, haversine((coord['lat'], coord['long']), (addr_coord.location.latitude, addr_coord.location.longitude))) for ip, coord in REPLICA_SERVERS_INFO.items()]
@@ -122,9 +127,10 @@ class DNSServer:
             # Send request to the HTTP server
             response = requests.get(url)
             metrics[ip] = response.json()
+            print(f"** Server {ip} metrics: {metrics[ip]} **")
             # Check if the cpu_percent is greater than 90%
-            # Or if any of the load averages are greater than 1.0
-            if any([load >= 1.0 for load in metrics[ip]['load_average']]) or metrics[ip]['cpu_percent'] >= 90.0:
+            # Or if any of the load averages are greater than 2.0
+            if any([load >= 2.0 for load in metrics[ip]['load_average']]) or metrics[ip]['cpu_percent'] > 90.0:
                 return True
             else:
                 return False
