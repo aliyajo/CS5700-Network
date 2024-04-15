@@ -59,11 +59,9 @@ class DNSServer:
         '''
         # Port number to bind to, got from parsed argument
         self.port = args.port
-        # Range of points have access to
-        self.ports = range(20040, 20050)
         # CDN name, got from parsed argument
         self.name = args.name
-        self.ip = None
+        # DNS cache
         self.cache = {}
 
 
@@ -81,7 +79,7 @@ class DNSServer:
         # Determine the distances
         distances = self.determining_distances(addr)
         # Check if first element is overloaded
-        for ip, distance in distances:
+        for ip, _ in distances:
             print(f"* Checking server {ip} *\n")
             if self.check_overloaded(ip):
                 print(f"* Server {ip} is overloaded *\n")
@@ -130,7 +128,7 @@ class DNSServer:
             print(f"** Server {ip} metrics: {metrics[ip]} **")
             # Check if the cpu_percent is greater than 90%
             # Or if any of the load averages are greater than 2.0
-            if any([load >= 2.0 for load in metrics[ip]['load_average']]) or metrics[ip]['cpu_percent'] > 90.0:
+            if any([load >= 2.0 for load in metrics[ip]['load_average']]) or metrics[ip]['cpu_percent'] >= 90.0:
                 return True
             else:
                 return False
