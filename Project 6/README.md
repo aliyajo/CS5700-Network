@@ -79,7 +79,7 @@
         - These metrics are then gauged based on the following scale:
             - Syntax for Load Average: [#, #, #]
               
-                If any of these numbers are above, or equal to 1, will be determined as overloaded
+                If any of these numbers are above, or equal to 2, will be determined as overloaded. This number of 2 was determined by the number of cores on the server. If the load average goes above this, then this indicates the server is experiencing high load.( <a href="https://cloudlinux.zendesk.com/hc/en-us/articles/4415075883538-Understanding-the-High-Load-Average-root-cause">Understanding High Load Average</a>)
           
             - Syntax for CPU Percent: #
           
@@ -139,3 +139,5 @@
 - https://github.com/paulc/dnslib
 - <a href='https://www.geeksforgeeks.org/designing-content-delivery-network-cdn-system-design/#'>Designing CDN System Design</a>
 - https://pypi.org/project/psutil/
+- <a href="https://cloudlinux.zendesk.com/hc/en-us/articles/4415075883538-Understanding-the-High-Load-Average-root-cause">Understanding High Load Average</a>
+
