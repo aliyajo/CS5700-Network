@@ -46,21 +46,6 @@ def deploy_dns_server(keyfile, username, server_name):
     # Run the command
     subprocess.run(scp_command)
 
-def deploy_geoip_db(keyfile, username, server_name):
-    '''
-    Deploys GeoIP database.
-    '''
-    # Draft the command to deploy the GeoIP database
-    scp_command = [
-        'scp', 
-        '-i', keyfile,
-        'GeoIp2/GeoLite2-City.mmdb',
-        f"{username}@{server_name}:~/"
-    ]
-    print(f" ** Deploying GeoIP database to {server_name} ** ")
-    # Run the command
-    subprocess.run(scp_command)
-
 def deploy_libraries(keyfile, username, server_name, library_name):
     '''
     Deploys libraries.
