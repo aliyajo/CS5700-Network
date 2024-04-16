@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import subprocess
 import dnslib
 import socket
 from haversine import haversine
@@ -63,6 +64,7 @@ class DNSServer:
         self.cache = {}
         # coordinate cache
         self.coord_cache = {}
+        self.metrics = {}
 
 
     def best_server(self, addr):
@@ -77,9 +79,13 @@ class DNSServer:
             The closest server
         '''
         # Determine the distances
-        distances = self.determining_distances(addr)
-        # Check if first element is overloaded
-        for ip, _ in distances:
+        self.determining_distances(addr)
+        # # Give the top three closest servers
+        top_three = {ip: coord for ip, coord in list(self.metrics.items())[:3]}
+        # Determine the best server based on the network performance, order in terms of best to worst
+        ranked_performance = self.best_network_performance(top_three)
+        # Iterate through these ranked servers, checking if they are overloaded
+        for ip in ranked_performance:
             print(f"* Checking server {ip} *\n")
             if self.check_overloaded(ip):
                 print(f"* Server {ip} is overloaded *\n")
@@ -88,17 +94,21 @@ class DNSServer:
                 print(f"* Server {ip} is not overloaded *\n")
                 return ip
         # If all servers are overloaded, return the closest server
-        print(f"* All servers are overloaded, returning to closest server {distances[0][0]}* \n")
-        return distances[0][0]
+        closest_server = list(self.metrics.keys())[0]
+        print(f"* All servers are overloaded, returning to closest server {closest_server}* \n")
+        # Get the first server in the dictionary
+        closest_server = list(self.metrics.keys())[0]
+        return closest_server
             
     def determining_distances(self, addr):
         '''
         This function helps establish a list
         of distances between the client and the replica servers.
+        ** GEOLOCATION IMPLEMENTATION **
         Params:
             @addr: The address of the client
         Returns:
-            A list containing the distances
+            A dictionary containing the distances
         '''
         # Check if the address is in the cache
         if addr in self.coord_cache:
@@ -116,14 +126,29 @@ class DNSServer:
             else:
                 print(f"Error: {response.status_code}")
         # Determine the distances
-        distances = [(ip, haversine((coord['lat'], coord['long']), (addr_coord['lat'], addr_coord['long']))) for ip, coord in REPLICA_SERVERS_INFO.items()]
-        # Sort the distances, closest is first in the list
-        distances.sort(key=lambda x: x[1])
-        return distances
+        for ip, coord in REPLICA_SERVERS_INFO.items():
+            # Check if the coordinates are in the cache
+            if ip in self.coord_cache:
+                coord = self.coord_cache[ip]
+            else:
+                coord = REPLICA_SERVERS_INFO[ip]
+                self.coord_cache[ip] = coord
+            # Calculate the distance
+            distance = haversine((coord['lat'], coord['long']), (addr_coord['lat'], addr_coord['long']))
+            # Add to the metrics dictionary
+            self.metrics[ip]= {'distance': distance}
+        self.metrics = dict(sorted(self.metrics.items(), key=lambda x: x[1]['distance']))
+
+        # distances = {ip: haversine((coord['lat'], coord['long']), (addr_coord['lat'], addr_coord['long'])) for ip, coord in REPLICA_SERVERS_INFO.items()}
+        # # Sort the distances by value, closest is first in the dictionary
+        # self.metrics[
+        # self.metrics = dict(sorted(distances.items(), key=lambda x: x[1]))
+        return self.metrics
 
     def check_overloaded(self, ip):
         '''
         This function is responsible for checking if a server is overloaded.
+        ** LOAD ON SERVERS IMPLEMENTATION **
         Params:
             @ip: The IP address of the server
         Returns:
@@ -136,7 +161,6 @@ class DNSServer:
             # Send request to the HTTP server
             response = requests.get(url)
             metrics[ip] = response.json()
-            print(f"** Server {ip} metrics: {metrics[ip]} **")
             # Check if the cpu_percent is greater than 90%
             # Or if any of the load averages are greater than 2.0
             if any([load >= 2.0 for load in metrics[ip]['load_average']]) or metrics[ip]['cpu_percent'] >= 90.0:
@@ -145,6 +169,63 @@ class DNSServer:
                 return False
         except Exception as e:
             print(e)
+
+    def best_network_performance(self, top_three):
+        '''
+        This function determines the best network performance.
+        '''
+        # Get the ping metrics
+        self.ping_information(top_three)
+        # Sort the ping metrics, best to worst
+        ranked_performance = sorted(top_three.keys(), key=lambda x: (top_three[x]['packet_loss'] == 0, top_three[x]['avg_rtt']))
+        return ranked_performance
+
+    def ping_information(self, top_three):
+        '''
+        This function is responsible for getting the ping information.
+        Params:
+            @top_three: The top three closest servers
+
+        '''
+        # Iterate through the top three servers
+        for ip in top_three:
+            # Send a ping request to the server
+            p = subprocess.Popen(['ping', '-q','-c', '1', ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = p.communicate()
+            out = out.decode('utf-8')
+            # Extract the metrics
+            metrics = self.extract_ping_metrics(out)
+            # Add to the metrics dictionary
+            self.metrics[ip].update({'packet_loss': metrics['packet_loss'], 'avg_rtt': metrics['avg_rtt']})
+        
+        
+
+    def extract_ping_metrics(self, out):
+        '''
+        This is a helper function that is responsible for extracting the metrics from the ping command.
+        Want the rtt average time and the packet loss percentage from the ping statistics.
+        Params:
+            @out: The output from the ping command
+        Returns:
+            A dictionary containing the metrics
+        '''
+        metrics = {}
+        # Split the output by newline
+        for l in out.split('\n'):
+            # If the line contains the word 
+            if 'packets transmitted' in l:
+                # Split the line by spaces
+                l = l.split(' ')
+                # Extract the percentage
+                metrics['packet_loss'] = int(l[5].replace('%', ''))
+            if 'rtt' in l:
+                # Split the line by spaces
+                l = l.split(' ')
+                # Split again by '/'
+                l = l[3].split('/')
+                # Extract the rtt avg time, metric is in ms
+                metrics['avg_rtt'] = float(l[1])
+        return metrics
 
     def run(self):
         '''
