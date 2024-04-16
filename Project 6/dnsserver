@@ -63,6 +63,8 @@ class DNSServer:
         self.name = args.name
         # DNS cache
         self.cache = {}
+        # coordinate cache
+        self.coord_cache = {}
 
 
     def best_server(self, addr):
@@ -100,12 +102,23 @@ class DNSServer:
         Returns:
             A list containing the distances
         '''
-        # Using the geoip2 library to determine the coordinates of the address
-        with geoip2.database.Reader("GeoLite2-City.mmdb") as reader:
-            addr_coord = reader.city(addr)
-        # Calculate the distance between the current address and the replica servers
-        distances = []
-        distances = [(ip, haversine((coord['lat'], coord['long']), (addr_coord.location.latitude, addr_coord.location.longitude))) for ip, coord in REPLICA_SERVERS_INFO.items()]
+        # Check if the address is in the cache
+        if addr in self.coord_cache:
+            addr_coord = self.coord_cache[addr]
+        else:
+            # Sending request to geojs.io to get the coordinates
+            response = requests.get(f'https://get.geojs.io/v1/ip/geo/{addr}.json')
+            if response.status_code == 200:
+                data = response.json()
+                # Extract the coordinates
+                addr_coord = {'lat': float(data.get('latitude')), 'long': float(data.get('longitude'))}
+                self.coord_cache[addr] = addr_coord
+                print(f"** Client coordinates: {addr_coord} **")
+                print(self.coord_cache)
+            else:
+                print(f"Error: {response.status_code}")
+        # Determine the distances
+        distances = [(ip, haversine((coord['lat'], coord['long']), (addr_coord['lat'], addr_coord['long']))) for ip, coord in REPLICA_SERVERS_INFO.items()]
         # Sort the distances, closest is first in the list
         distances.sort(key=lambda x: x[1])
         return distances
