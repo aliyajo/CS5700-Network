@@ -12,7 +12,6 @@
 ## Libraries to install:
 - The following libraries are not a part of the python standard library and will need to be installed:
   - dnslib
-  - geoip2
   - haversine
   - requests
   - psutil
@@ -76,9 +75,10 @@
   decided to implement a dynamic active and passive measurement determining which
   replica server to send to.
     - For passive measurement, implemented directing based on geographical location.
-      When the client si requesting content, the DNS server will determine which replica
+      When the client is requesting content, the DNS server will determine which replica
       is closest by picking the one with the closest distance. This point of the server
-      involves using <a href="https://pypi.org/project/geoip2/0.1.0/">GeoIp2</a>
+      involves using <a href="https://www.geojs.io/">GeoJS</a> get request to determine
+      the coordinates. 
       These replica servers closest to the client are then put in an ordered list.
     - For active measurement, this then looked at this ordered list, and determined if
       the first in the list--which is the closest server-- is overloaded or not.
