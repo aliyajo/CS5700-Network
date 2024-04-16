@@ -113,8 +113,6 @@ class DNSServer:
                 # Extract the coordinates
                 addr_coord = {'lat': float(data.get('latitude')), 'long': float(data.get('longitude'))}
                 self.coord_cache[addr] = addr_coord
-                print(f"** Client coordinates: {addr_coord} **")
-                print(self.coord_cache)
             else:
                 print(f"Error: {response.status_code}")
         # Determine the distances
