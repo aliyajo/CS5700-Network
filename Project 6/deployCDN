@@ -93,17 +93,12 @@ def main(args):
     # deploy dns server
     deploy_dns_server(args.keyfile, args.username, DNS_SERVER)
     
-    # deploy GeoIP database
-    deploy_geoip_db(args.keyfile, args.username, DNS_SERVER)
-    
     # deploy libraries
     for server in REPLICA_SERVERS:
         # psutil
         deploy_libraries(args.keyfile, args.username, REPLICA_SERVERS[server], 'psutil')
     # haversine
     deploy_libraries(args.keyfile, args.username, DNS_SERVER, 'haversine')
-    # geoip2
-    deploy_libraries(args.keyfile, args.username, DNS_SERVER, 'geoip2')
     # requests
     deploy_libraries(args.keyfile, args.username, DNS_SERVER, 'requests')
     # dnslib
