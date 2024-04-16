@@ -9,6 +9,16 @@
 - This project entails creating our own basic CDN implementation. This involves creating a DNS server that is able to map the clients requesting content to what we categorize as "good" replica servers. These replica servers, which are HTTP based, are then able to retrieve the content the client is requesting. This basic implementation involves strategic planning on how the CDN is able to redirect, and utilize the HTTP server to have fast performance.
 
 
+## Libraries to install:
+- The following libraries are not a part of the python standard library and will need to be installed:
+  - dnslib
+  - geoip2
+  - haversine
+  - requests
+  - psutil
+- To install these libraries, use the following command format:
+  - `pip install <library>`
+
 
 ## How to install & run:
 > Running
@@ -37,6 +47,7 @@
   - name: CDN-specific name that dns server will redirect
   - username: account name for logging in
   - keyfile: path to the private key for logging into nodes
+
 
 ## Design & Implementation:
 > First Step
@@ -122,6 +133,12 @@
   
 - Implenting how we wanted to map the redirection on the DNS side was challenging strategically wise. There are ways of determining how to redirect, which was resolved through communication and viewing how real-world CDN's work. This led to using both active and passive measurement.
 
+- Nearing the end of the project, trying to maintain the limit of 20MB was
+  challenging as well. Since the GeoIp2 database was too big, we had to find a
+  new way to determine the location of the client. This was done by implementing
+  our own version of a geo cache. 
+
+
 ## Testing:
 - Testing the DNS server consisted of print statements & utilizing the 'dig'
   command in the terminal to see if the DNS server was returning the correct IP
@@ -130,6 +147,7 @@
 - Testing the HTTP cache server consisted of using the 'wget' command in the terminal
   to see if the cache server was able to fetch content from the origin server
   and send it to the client.
+
 
 ## Sources Used:
 - <a href='https://humanwhocodes.com/blog/2011/11/29/how-content-delivery-networks-cdns-work/'>How Content Delivery Networks Work</a> 
