@@ -2,8 +2,6 @@
 import argparse
 import dnslib
 import socket
-import geoip2
-import geoip2.database
 from haversine import haversine
 import time
 import requests
@@ -104,6 +102,7 @@ class DNSServer:
         '''
         # Check if the address is in the cache
         if addr in self.coord_cache:
+            # Get the coordinates from the cache
             addr_coord = self.coord_cache[addr]
         else:
             # Sending request to geojs.io to get the coordinates
@@ -112,6 +111,7 @@ class DNSServer:
                 data = response.json()
                 # Extract the coordinates
                 addr_coord = {'lat': float(data.get('latitude')), 'long': float(data.get('longitude'))}
+                # Update the cache
                 self.coord_cache[addr] = addr_coord
             else:
                 print(f"Error: {response.status_code}")
