@@ -2,6 +2,7 @@ Network Projects
 
 ## Description ##
 These folders correspond with the given projects in CS4700 Network Fundamentals class @ NEU Spring 2024. 
+As part of a comprehensive networking course focused on the architecture, algorithms, and protocols of the Internet, I successfully completed six hands-on projects that deepened my understanding of various aspects of network systems. This course covered local area networking, routing, congestion control, network security, and Internet applications such as peer-to-peer and content distribution networks. Each project was designed to be systems-oriented, enabling me to build and analyze Internet applications. 
 
 ## Used with ##
 - Servers given to by Christo Wilson to implement each project
