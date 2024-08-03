@@ -131,7 +131,7 @@
   files were copied over to these servers for deployment. In addition, to test these files,
   we were able to determine the correct syntax for the commands 'dig' and 'wget'.
   
-- Implenting how we wanted to map the redirection on the DNS side was challenging strategically wise. There are ways of determining how to redirect, which was resolved through communication and viewing how real-world CDN's work. This led to using both active and passive measurement.
+- Implementing how we wanted to map the redirection on the DNS side was challenging strategically wise. There are ways of determining how to redirect, which was resolved through communication and viewing how real-world CDN's work. This led to using both active and passive measurement.
 
 - Nearing the end of the project, trying to maintain the limit of 20MB was
   challenging as well. Since the GeoIp2 database was too big, we had to find a
