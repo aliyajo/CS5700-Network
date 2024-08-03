@@ -10,18 +10,17 @@ This program is to build off a UDP baseline implementation, and build it to matc
 
 ## How to run:
 - This program can be ran through the command line input:
-    > Command Line Syntax for sending program:
+   
         ./4700send <recv_host> <recv_port>
     
-    recv_host: The domain name, or IP address of the remote host -- Required --
-    recv_port: The UDP port of the remote host -- Required --
+            recv_host: The domain name, or IP address of the remote host -- Required --
+            recv_port: The UDP port of the remote host -- Required --
 
-    The data from the sender is sent to the receiver using the STDIN. Transmit this data via the UDP socket. 
+- The data from the sender is sent to the receiver using the STDIN. Transmit this data via the UDP socket. 
 
-    > Command line syntax for receiving program:
         ./4700recv
 
-    The reciever program prints out the data using the STDOUT. The data that it prints is identical to the data that is supplied from the sender via STDIN. 
+- The reciever program prints out the data using the STDOUT. The data that it prints is identical to the data that is supplied from the sender via STDIN. 
 
 ## Design and Implementation:
 - This program was implemented following the implementation strategy of building the code with each level. It was coded to pass a level (there was 8)
@@ -32,80 +31,81 @@ that each had their own characteristics it was testing of the program.
 
 - Throughout these levels, they were broken down on paper on what part of the TCP protocol is being asked. This was looked more into using the lecture slides which provided equations and pseudocode to help build off of these levels. 
 - What each level targeted, and was worked on in this order:
-    > Level 1: Handling bigger window size.
-    > Level 2: Handling duplicate packets.
-    > Level 3: Implementing a more sufficient window that can handle delays. 
+  
+    - Level 1: Handling bigger window size.
+    - Level 2: Handling duplicate packets.
+    - Level 3: Implementing a more sufficient window that can handle delays. 
                 Also need to be able to implement making the program deliver packets in-order.
-    > Level 4: Handling packet loss.
-    > Level 5: Handling corruption of packets.
-    > Level 6: Handling different latencies.
-    > Level 7: Handling different bandwidths.
-    > Level 8: Overall mechanism test. 
+    - Level 4: Handling packet loss.
+    - Level 5: Handling corruption of packets.
+    - Level 6: Handling different latencies.
+    - Level 7: Handling different bandwidths.
+    - Level 8: Overall mechanism test. 
     
 ## Functions:
--- In 3700send file -- 
+### 3700send file
+These functions mantain the functionality of the Sender.
 -  'Sender' Class: 
-    > Contructor
-        Creates a sender object
-    > log(message)
-        This function logs a message using stderr.
-    > send(message)
+    - send(message)
         This function sends a message to the remote host.
-    > extract_sequence_number(data)
+    - extract_sequence_number(data)
         This function is used to extract the sequence number from the data
-    > calculate_checksum(data)
+    - calculate_checksum(data)
         This function is used to calculate the checksum of the data
-    > retransmission_control(sequence):
+    - retransmission_control(sequence):
         This function deals with the retransmission timeout control aspect of the sender. 
-    > congestion_control(timeout=false)
-        This function is used ti implement the congestion control algorithm. 
+    - congestion_control(timeout=false)
+        This function is used tp implement the congestion control algorithm. 
         Deals with multiple aspects of the congestion control
             - Timeout
             - Slow Start
             - Congestion Avoidance
-    > run()
+    - run()
         This function runs the sender
 
--- In 3700recv file --
+### 3700recv file
+These functions maintain the functionality of the Receiver. 
 - 'Receiver' Class:
-    > Constructor
-        Creates a reciever object.
-    > send(message)
+    - send(message)
         This function sends a message.
-    > log(message)
+    - log(message)
         This function logs a message using stderr.
-    > check_for_corruption(msg)
+    - check_for_corruption(msg)
         This function checks for corruption in the message utilizing the checksum.
-    > deliver_in_order()
+    - deliver_in_order()
         This function ensures that the program delivers packets in-order.
-    > run()
+    - run()
         This functions runs the reciever.
 
 ## Challenges: 
 There were many challenges since implenting TCP logic involved multiple avenues that are addressed to paint the entire picture of having this reliable protocol. 
 
-- Some of the challenges included, but not limited to:
-    > Making sure the packages are delivered in order. This involved providing two levels of security when it comes to ensuring that the packets are going to be delivered in order. 
-        1. Sorting the cache being built throughout the code
-        2. Making sure the deliverance of these packages are coinciding with a variable that ensures it is sequential. 
+Some of the challenges included, but not limited to:
 
-    This was a challenge since at first there was only one layer of security that I had, bulletin 1, that was being implemented. It wasn't after reading more about TCP implementation, and realizing the assumption made by just sorting the cache is that the cache is fully in sequential order. 
+- Making sure the packages are delivered in order. This involved providing two levels of security when it comes to ensuring that the packets are going to be delivered in order.
+  
+    1. Sorting the cache being built throughout the code
+    2. Making sure the deliverance of these packages are coinciding with a variable that ensures it is sequential. 
 
-    For instance, the cache could have [0, 1, 4 , 3] , we then sort which creates it to be [0, 1, 3, 4]. This however is not in the sequential order. Hence why the bulletin 2 needs to be implemented. 
+This was a challenge since at first there was only one layer of security that I had, bulletin 1, that was being implemented. It wasn't after reading more about TCP implementation, and realizing the assumption made by just sorting the cache is that the cache is fully in sequential order. 
 
-    > Implementing congestion control. This was resolved by following lecture slides that provided equations on how to compute. This computation involved how to determine how to implement slow start phase, and congestion avoidance. 
+For instance, the cache could have [0, 1, 4 , 3] , we then sort which creates it to be [0, 1, 3, 4]. This however is not in the sequential order. Hence why the bulletin 2 needs to be implemented. 
 
-    In this congestion control, timeout is also implemented in this function which equation was also found on the lecture slides. 
+- Implementing congestion control. This was resolved by following lecture slides that provided equations on how to compute. This computation involved how to determine how to implement slow start phase, and congestion avoidance. 
 
-    Where to implement timeout in an efficient way was another challenge. 
+
+In this congestion control, timeout is also implemented in this function which equation was also found on the lecture slides. 
+
+Where to implement timeout in an efficient way was another challenge. 
 
 ## Testing:
 - Was able to test with the given configuration files that allow us to test our sender and reciever in different scenarios. Each level addressed different issues that we need to make sure both of our programs can implement the correct characteristics.
 
 - Was able to test with our own testing file where we tested minor functions that needed to be ensure worked before inputting into the main program. This included, but not limited to testing: 
-    > Extracting the sequence number from data
-    > Being able to add + 1 to this sequence number
-    > Sorting dictionary keys correctly
+    - Extracting the sequence number from data
+    - Being able to add + 1 to this sequence number
+    - Sorting dictionary keys correctly
+      
     .. etc 
 
 ## Resources:
