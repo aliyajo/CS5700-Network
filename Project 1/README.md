@@ -3,9 +3,10 @@ Project 1: Socket Basics
 By: Aliya Jordan
 
 ## Overview
-    This Python file is able to successfully communicate to the given server that is inputted on the command line. This communication involves back-and-forth messages that help the client play Wordle, and determine if successfully guess the word if server returns the secret flag. 
+This Python file is able to successfully communicate to the given server that is inputted on the command line. This communication involves back-and-forth messages that help the client play Wordle, and determine if successfully guess the word if server returns the secret flag. 
 
-    In order to run the program proficiently, the wordlist.txt file must be downloaded alongside the client.py file. It must be in the same directory as the client file due the file utilizing it for the official word list of Wordle. 
+
+In order to run the program proficiently, the wordlist.txt file must be downloaded alongside the client.py file. It must be in the same directory as the client file due the file utilizing it for the official word list of Wordle. 
 
 ## Features
     Able to connect to either TLS connections, or TLS encrytpted connections. 
