@@ -32,6 +32,8 @@ As part of a comprehensive networking course focused on the architecture, algori
     - Implement a web crawler. Looks for secret flags on numerous HTML web pages. 
 - Project 6: Content Delivery Network
     - Create the building blocks of CDN
- 
+
+** Each Project folder contains individual README's with more information based on corresponding project. **
+
 ## Citations ##
 Class information : https://4700.network/ 
