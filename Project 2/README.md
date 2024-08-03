@@ -3,8 +3,8 @@ Project 2: FTP Client
 By: Aliya Jordan
 
 ## Overview 
-    This python file is for the client side of connecting to a FTP server.
-    It has features of a FTP application: uploading information to the server, downloading information to the server, making a new directory, removing a directory, removing a file, and moving file around.
+This python file is for the client side of connecting to a FTP server.
+It has features of a FTP application: uploading information to the server, downloading information to the server, making a new directory, removing a directory, removing a file, and moving file around.
 
 ## Features
     Able to efficiently connect to a FTP server and communicate in a way to move around files. 
