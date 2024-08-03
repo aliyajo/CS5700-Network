@@ -38,7 +38,10 @@ Able to efficiently connect to a FTP server and communicate in a way to move aro
         If moving from FTP server to the local machine:
             'ARG1': FTP server URL which has the format: ftp://[USER[:PASSWORD]@]HOST[:PORT]/PATH
             'ARG2': Local directory path
-
+## Functions:
+- main():
+    This is the main function that runs this FTP client program.
+  
 ## Modules used:
 For this code, some built-in python modules that were imported in order to make the code functional when accomplishing the overall goal of the program. 
 - argparse: module that allows easy user-friendly command-line interfaces.
