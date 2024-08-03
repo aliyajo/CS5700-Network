@@ -3,6 +3,7 @@
 ## Authors:
 - [Aliya Jordan](https://github.com/aliyajo)
 
+
 - Starter code provided by Professor Christo Wilson at Northeastern University
 
 ## Description:
@@ -10,61 +11,70 @@ This project is to implement the HTTP protocol.This involves creating a web craw
 
 ## How to run:
 - This program can be ran through the command line input:
-    > Command Line Syntax for sending program:
-        ./crawler <-s server> <-p port> <username> <password>
+    - For sending program:
+      
+            ./crawler <-s server> <-p port> <username> <password>
     
-    -s server: Optional, server
-
-    -p port: Optional, port
-
-    Username: Username to login into fakebook
-
-    Password: Password to login into fakebook
+                -s server: Optional, server
+            
+                -p port: Optional, port
+            
+                Username: Username to login into fakebook
+            
+                Password: Password to login into fakebook
 
 ## Design and Implementation:
 - This program was implemented with the following steps:
-    > Perform Login to the HTTP server successfully
+    - Perform Login to the HTTP server successfully
         - GET and POST request
-    > Extract the link from this initial login page
-    > Be in a loop that continiously extracts links and crawls throughout them
+    - Extract the link from this initial login page
+    - Be in a loop that continiously extracts links and crawls throughout them
         - Determine what to do based on status code
 
 - The design involved a recursive loop when it came to getting passed the initial login page due to the concept of a crawler being able to crawl throughout a web server.
     
 ## Functions:
--  'Crawler' Class: 
-    > Contructor
-        Creates a Crawler object
-    > create_socket()
-        Creates a socket object
-    > read_response(ssl_socket)
+These functions maintained the functionality of creating a web crawler.
+-  'Crawler' Class:
+   
+    - read_response(ssl_socket)
+      
         Reads the response from a socket object
-    > send_GET_request(ssl_socket, url, secondary=False)
+    - send_GET_request(ssl_socket, url, secondary=False)
+      
         Sends a GET request to the server. 
         Is able to function dependent on whether or not it is a 
         GET request to a=the initial login page or the subsequent
         pages. 
         The difference is whether or not to include cookies.
-    > send_POST_request(ssl_socket, data, url)
+    - send_POST_request(ssl_socket, data, url)
+      
         Sends a POST request to the server.
-    > extract_cookies(data):
+    - extract_cookies(data):
+      
         Extracts the set-cookie headers from the HTML response
-    > extract_csrf(data):
+    - extract_csrf(data):
+      
         Extracts the csrfmiddlewaretoken from the given data.
-    > extract_links(secondary=False):
+    - extract_links(secondary=False):
+      
         Extracts the links from the HTML response.
         Also is dependent on if for the initial login page or the subsequent pages. 
-    > extract_status_code(data):
+    - extract_status_code(data):
+      
         Extracts the status code from the HTTP response.
-    > extract_flags(data):
+    - extract_flags(data):
+      
         Extracts the secret flags from the given HTML data.
         Implements re library to help extract flags appropriately.
-    > crawl(ssl_socket, url):
+    - crawl(ssl_socket, url):
+      
         Crawls the server. It does this by performing the following:
         Sending a GET request from one of the links from the 
         set of 'frontier' links. 
         Handles the appropriate status codes.
-    > run()
+    - run()
+      
         This function runs the crawler
 
 ## Challenges: 
