@@ -7,7 +7,7 @@
 - Starter code provided by Professor Christo Wilson at Northeastern University
 
 ## Description:
-This project is to implement the HTTP protocol.This involves creating a web crawler that is able to crawl thrughout the given web server give. It is able to go through the links that are embedded on the web page, parses them, and then crawls throughout them. The goal is to be able to extract the secret flag on these pages. 
+This project is to implement the HTTP protocol.This involves creating a web crawler that is able to crawl throughout the given web server give. It is able to go through the links that are embedded on the web page, parses them, and then crawls throughout them. The goal is to be able to extract the secret flag on these pages. 
 
 ## How to run:
 - This program can be ran through the command line input:
