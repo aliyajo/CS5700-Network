@@ -58,11 +58,6 @@ sockets using the select() function and poll() function.
   debug. We also created an additional class to handle IP address manipulation.
 
 ## Challenges:
-- Since our team had no prior experience with larger scale projects, we decided
-  to test out using GitHub in a collaborative environment. It gave us more peace
-  of mind knowing that either of us would not lose or overwrite the other's
-  work.
-  
 - Initially when we began implementing the router, we had started using a simple
   dictionary as the data structure to store the forwarding table. However, we
   had run into issues with the dictionary not being able to handle multiple keys
