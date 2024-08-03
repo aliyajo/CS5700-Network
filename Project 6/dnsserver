@@ -138,11 +138,6 @@ class DNSServer:
             # Add to the metrics dictionary
             self.metrics[ip]= {'distance': distance}
         self.metrics = dict(sorted(self.metrics.items(), key=lambda x: x[1]['distance']))
-
-        # distances = {ip: haversine((coord['lat'], coord['long']), (addr_coord['lat'], addr_coord['long'])) for ip, coord in REPLICA_SERVERS_INFO.items()}
-        # # Sort the distances by value, closest is first in the dictionary
-        # self.metrics[
-        # self.metrics = dict(sorted(distances.items(), key=lambda x: x[1]))
         return self.metrics
 
     def check_overloaded(self, ip):
