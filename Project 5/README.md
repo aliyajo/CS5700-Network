@@ -35,47 +35,46 @@ This project is to implement the HTTP protocol.This involves creating a web craw
     
 ## Functions:
 These functions maintained the functionality of creating a web crawler.
--  'Crawler' Class:
    
-    - read_response(ssl_socket)
-      
-        Reads the response from a socket object
-    - send_GET_request(ssl_socket, url, secondary=False)
-      
-        Sends a GET request to the server. 
-        Is able to function dependent on whether or not it is a 
-        GET request to a=the initial login page or the subsequent
-        pages. 
-        The difference is whether or not to include cookies.
-    - send_POST_request(ssl_socket, data, url)
-      
-        Sends a POST request to the server.
-    - extract_cookies(data):
-      
-        Extracts the set-cookie headers from the HTML response
-    - extract_csrf(data):
-      
-        Extracts the csrfmiddlewaretoken from the given data.
-    - extract_links(secondary=False):
-      
-        Extracts the links from the HTML response.
-        Also is dependent on if for the initial login page or the subsequent pages. 
-    - extract_status_code(data):
-      
-        Extracts the status code from the HTTP response.
-    - extract_flags(data):
-      
-        Extracts the secret flags from the given HTML data.
-        Implements re library to help extract flags appropriately.
-    - crawl(ssl_socket, url):
-      
-        Crawls the server. It does this by performing the following:
-        Sending a GET request from one of the links from the 
-        set of 'frontier' links. 
-        Handles the appropriate status codes.
-    - run()
-      
-        This function runs the crawler
+- read_response(ssl_socket)
+  
+    Reads the response from a socket object
+- send_GET_request(ssl_socket, url, secondary=False)
+  
+    Sends a GET request to the server. 
+    Is able to function dependent on whether or not it is a 
+    GET request to a=the initial login page or the subsequent
+    pages. 
+    The difference is whether or not to include cookies.
+- send_POST_request(ssl_socket, data, url)
+  
+    Sends a POST request to the server.
+- extract_cookies(data):
+  
+    Extracts the set-cookie headers from the HTML response
+- extract_csrf(data):
+  
+    Extracts the csrfmiddlewaretoken from the given data.
+- extract_links(secondary=False):
+  
+    Extracts the links from the HTML response.
+    Also is dependent on if for the initial login page or the subsequent pages. 
+- extract_status_code(data):
+  
+    Extracts the status code from the HTTP response.
+- extract_flags(data):
+  
+    Extracts the secret flags from the given HTML data.
+    Implements re library to help extract flags appropriately.
+- crawl(ssl_socket, url):
+  
+    Crawls the server. It does this by performing the following:
+    Sending a GET request from one of the links from the 
+    set of 'frontier' links. 
+    Handles the appropriate status codes.
+- run()
+  
+    This function runs the crawler
 
 ## Challenges: 
 There were many challenges involving implementing HTML. Some include:
